@@ -10,6 +10,8 @@
     "typecheck": "vinext typegen && tsc --noEmit",
     "lint": "eslint .",
     "quality": "pnpm typecheck && pnpm lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev:vinext": "vinext dev --port 3001",
     "build:vinext": "vinext build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",

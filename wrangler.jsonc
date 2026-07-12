@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "myco-nz",
+  "compatibility_date": "2026-07-12",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "cache": {
+    "enabled": true,
+    "cross_version_cache": true
+  },
+  "ratelimits": [
+    {
+      "name": "INATURALIST_MISS_LIMITER",
+      "namespace_id": "26071301",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    }
+  ],
+  "vars": {
+    "INATURALIST_USER_AGENT": "NearbyFungi/1.0 (+https://github.com/gardner/myco_nz)"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
