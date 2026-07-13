@@ -96,6 +96,38 @@ describe("LocationExperience", () => {
 
     expect(await screen.findByRole("heading", { name: "Location access is off" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Location access is off");
+  });
+
+  it("does not let an obsolete load overwrite a refresh failure", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        cell: "86bb2955fffffff",
+        resolution: 6,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((resolve) => (resolveFetch = resolve)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    setGeolocation((_, error) => error({ code: 1 } as GeolocationPositionError));
+
+    render(<LocationExperience />);
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh location" }));
+    expect(await screen.findByRole("heading", { name: "Location access is off" })).toBeVisible();
+
+    resolveFetch?.(
+      new Response(JSON.stringify(fungiResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("White Basket Fungus")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Location access is off" })).toBeVisible();
   });
 
   it("renders empty and upstream error states", async () => {

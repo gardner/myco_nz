@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { FungiList } from "@/components/fungi-list";
@@ -36,5 +36,15 @@ describe("FungiList", () => {
     expect(screen.getByText("No common name listed")).toBeVisible();
     expect(container.querySelector("img")).toHaveAttribute("src", "/fungi-placeholder.svg");
     expect(container.querySelector("img")).toHaveAttribute("alt", "");
+  });
+
+  it("removes obsolete attribution when a remote photo fails", () => {
+    render(<FungiList results={fungiResponse.results.slice(0, 1)} />);
+
+    fireEvent.error(screen.getByRole("img"));
+
+    expect(screen.queryByText(/k_fordyce/)).not.toBeInTheDocument();
+    expect(document.querySelector("img")).toHaveAttribute("src", "/fungi-placeholder.svg");
+    expect(document.querySelector("img")).toHaveAttribute("alt", "");
   });
 });

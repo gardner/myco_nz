@@ -29,6 +29,7 @@ test.describe("Nearby Fungi", () => {
     await page.getByRole("button", { name: "Show fungi near me" }).click();
 
     await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
     await expect(page.getByRole("article")).toHaveCount(3);
     expect(apiRequests).toHaveLength(1);
     expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
@@ -92,6 +93,7 @@ test("shows a recovery path when location permission is denied", async ({ browse
   await page.getByRole("button", { name: "Show fungi near me" }).click();
 
   await expect(page.getByRole("heading", { name: "Location access is off" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Location access is off" })).toBeFocused();
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await context.close();
 });

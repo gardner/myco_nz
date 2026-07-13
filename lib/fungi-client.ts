@@ -28,12 +28,98 @@ export async function fetchFungi(
 }
 
 function isFungiResponse(value: unknown): value is FungiResponse {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<FungiResponse>;
+  if (!isRecord(value) || !isRecord(value.query) || !isRecord(value.coverage)) return false;
+  if (!isRecord(value.source) || !Array.isArray(value.results)) return false;
+
   return (
-    candidate.schemaVersion === 1 &&
-    Array.isArray(candidate.results) &&
-    typeof candidate.coverage?.label === "string" &&
-    candidate.query?.resolution === 6
+    value.schemaVersion === 1 &&
+    typeof value.generatedAt === "string" &&
+    isFungiQuery(value.query) &&
+    isCoverage(value.coverage) &&
+    isSource(value.source) &&
+    value.results.length <= 20 &&
+    value.results.every(isFungiResult)
   );
+}
+
+function isFungiQuery(value: Record<string, unknown>): boolean {
+  return (
+    value.resolution === 6 &&
+    isPositiveInteger(value.requestedMonth) &&
+    Array.isArray(value.includedMonths) &&
+    value.includedMonths.length === 3 &&
+    value.includedMonths.every(isPositiveInteger) &&
+    value.radiusKm === 30 &&
+    value.locale === "en-NZ" &&
+    typeof value.cell === "string"
+  );
+}
+
+function isCoverage(value: Record<string, unknown>): boolean {
+  return (
+    ["cell-centre-radius", "expanded-radius", "cell-ring"].includes(String(value.mode)) &&
+    Array.isArray(value.sourceCells) &&
+    value.sourceCells.every((cell) => typeof cell === "string") &&
+    isNonNegativeInteger(value.expansionLevel) &&
+    isNonEmptyString(value.label)
+  );
+}
+
+function isSource(value: Record<string, unknown>): boolean {
+  return value.name === "iNaturalist" && value.siteUrl === "https://inaturalist.nz";
+}
+
+function isFungiResult(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isPositiveInteger(value.rank) &&
+    isPositiveInteger(value.taxonId) &&
+    (value.commonName === null || typeof value.commonName === "string") &&
+    isNonEmptyString(value.scientificName) &&
+    isNonNegativeInteger(value.observationCount) &&
+    isNonEmptyString(value.observationCountLabel) &&
+    isAllowedUrl(value.observationsUrl, ["https://inaturalist.nz"]) &&
+    (value.image === null || isFungiImage(value.image))
+  );
+}
+
+function isFungiImage(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isAllowedUrl(value.url, [
+      "https://inaturalist-open-data.s3.amazonaws.com",
+      "https://static.inaturalist.org",
+    ]) &&
+    isNullableString(value.attribution) &&
+    isNullableString(value.licenseCode)
+  );
+}
+
+function isAllowedUrl(value: unknown, allowedOrigins: string[]): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    return allowedOrigins.includes(new URL(value).origin);
+  } catch {
+    return false;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNullableString(value: unknown): boolean {
+  return value === null || typeof value === "string";
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value > 0;
 }

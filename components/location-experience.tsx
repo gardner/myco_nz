@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ExternalLink, LocateFixed, LockKeyhole, RefreshCw } from "lucide-react";
 
-import { FungiList } from "@/components/fungi-list";
 import styles from "@/components/location-experience.module.css";
+import {
+  EmptyView,
+  LoadingView,
+  LocationGate,
+  ResultsView,
+  StatusView,
+} from "@/components/location-views";
 import {
   getApproximateCell,
   LocationAccessError,
@@ -12,7 +17,6 @@ import {
   storeLocationCell,
 } from "@/lib/client-location";
 import { fetchFungi, FungiClientError } from "@/lib/fungi-client";
-import { formatSeasonalRange } from "@/lib/months";
 import type { FungiResponse } from "@/lib/types";
 
 type ViewState =
@@ -24,9 +28,13 @@ type ViewState =
 export function LocationExperience() {
   const [state, setState] = useState<ViewState>({ status: "idle" });
   const activeRequest = useRef<AbortController | null>(null);
+  const operationGeneration = useRef(0);
+  const focusAfterAction = useRef(false);
+  const experience = useRef<HTMLElement | null>(null);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
-  const loadResults = useCallback(async (cell: string) => {
+  const loadResults = useCallback(async (cell: string, generation?: number) => {
+    const currentGeneration = generation ?? ++operationGeneration.current;
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -35,9 +43,10 @@ export function LocationExperience() {
     try {
       const month = new Date().getMonth() + 1;
       const data = await fetchFungi(cell, month, controller.signal);
+      if (currentGeneration !== operationGeneration.current) return;
       setState({ status: data.results.length ? "success" : "empty", data, cell });
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || currentGeneration !== operationGeneration.current) return;
       const status =
         error instanceof FungiClientError && error.code === "outside-new-zealand"
           ? "outside"
@@ -47,12 +56,17 @@ export function LocationExperience() {
   }, []);
 
   const requestLocation = useCallback(async () => {
+    const currentGeneration = ++operationGeneration.current;
+    activeRequest.current?.abort();
+    focusAfterAction.current = true;
     setState({ status: "locating" });
     try {
       const cell = await getApproximateCell(navigator.geolocation ?? null);
+      if (currentGeneration !== operationGeneration.current) return;
       storeLocationCell(cell);
-      await loadResults(cell);
+      await loadResults(cell, currentGeneration);
     } catch (error) {
+      if (currentGeneration !== operationGeneration.current) return;
       if (!(error instanceof LocationAccessError)) {
         setState({ status: "unavailable" });
         return;
@@ -60,6 +74,14 @@ export function LocationExperience() {
       setState({ status: error.code });
     }
   }, [loadResults]);
+
+  const retryResults = useCallback(
+    async (cell: string) => {
+      focusAfterAction.current = true;
+      await loadResults(cell);
+    },
+    [loadResults],
+  );
 
   useEffect(() => {
     const stored = readStoredLocation();
@@ -72,8 +94,16 @@ export function LocationExperience() {
     };
   }, [loadResults]);
 
+  useEffect(() => {
+    if (!focusAfterAction.current || state.status === "locating" || state.status === "loading") {
+      return;
+    }
+    experience.current?.querySelector<HTMLElement>("h1")?.focus();
+    focusAfterAction.current = false;
+  }, [state.status]);
+
   return (
-    <section className={styles.experience}>
+    <section className={styles.experience} ref={experience}>
       <p className="sr-only" role="status" aria-live="polite">
         {liveMessage(state)}
       </p>
@@ -81,7 +111,7 @@ export function LocationExperience() {
         state={state}
         hydrated={hydrated}
         requestLocation={requestLocation}
-        loadResults={loadResults}
+        loadResults={retryResults}
       />
     </section>
   );
@@ -157,162 +187,17 @@ function StateView({
   }
 }
 
-function LocationGate({
-  hydrated,
-  locating,
-  onAction,
-}: {
-  hydrated: boolean;
-  locating: boolean;
-  onAction: () => void;
-}) {
-  return (
-    <div className={styles.gate}>
-      <p className={styles.eyebrow}>Seasonal records, close to home</p>
-      <h1>Fungi likely near you</h1>
-      <p className={styles.intro}>
-        See the fungi most often recorded around your approximate area at this time of year.
-      </p>
-      <button
-        className={styles.primaryButton}
-        onClick={onAction}
-        disabled={locating || !hydrated}
-        type="button"
-      >
-        <LocateFixed aria-hidden="true" size={20} />
-        {locating ? "Finding your area..." : "Show fungi near me"}
-      </button>
-      <p className={styles.privacy}>
-        <LockKeyhole aria-hidden="true" size={17} />
-        Your exact location stays on this device. We send only an approximate area.
-      </p>
-      <SourceLine />
-    </div>
-  );
-}
-
-function LoadingView({ onRefresh }: { onRefresh: () => void }) {
-  return (
-    <>
-      <ResultsHeader onRefresh={onRefresh} />
-      <div className={styles.skeletonList} aria-hidden="true">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div className={styles.skeleton} key={index} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ResultsView({ data, onRefresh }: { data: FungiResponse; onRefresh: () => void }) {
-  return (
-    <>
-      <ResultsHeader data={data} onRefresh={onRefresh} />
-      <FungiList results={data.results} />
-      <ResultsFooter />
-    </>
-  );
-}
-
-function EmptyView({ data, onRefresh }: { data: FungiResponse; onRefresh: () => void }) {
-  return (
-    <>
-      <StatusView
-        heading="Not enough local records yet"
-        description="iNaturalist may have sparse fungi records for this area and season."
-        action="Refresh location"
-        onAction={onRefresh}
-      />
-      <a
-        className={styles.externalAction}
-        href="https://inaturalist.nz/observations?iconic_taxa=Fungi&quality_grade=research"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Browse fungi observations on iNaturalist NZ
-        <ExternalLink aria-hidden="true" size={16} />
-        <span className="sr-only"> (opens in a new tab)</span>
-      </a>
-      <p className={styles.coverage}>{data.coverage.label}</p>
-    </>
-  );
-}
-
-function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: () => void }) {
-  return (
-    <header className={styles.resultsHeader}>
-      <p className={styles.eyebrow}>Historical observation frequency</p>
-      <h1>Most often observed near you</h1>
-      <p>
-        {data
-          ? `Based on research-grade observations from ${formatSeasonalRange(data.query.requestedMonth)} across previous years.`
-          : "Loading seasonal research-grade observations..."}
-      </p>
-      <p className={styles.coverage}>
-        {data?.coverage.label ?? "Within your approximate area"}
-      </p>
-      <button className={styles.secondaryButton} onClick={onRefresh} type="button">
-        <RefreshCw aria-hidden="true" size={17} />
-        Refresh location
-      </button>
-    </header>
-  );
-}
-
-function StatusView({
-  heading,
-  description,
-  action,
-  onAction,
-}: {
-  heading: string;
-  description: string;
-  action: string;
-  onAction: () => void;
-}) {
-  return (
-    <div className={styles.statusPanel}>
-      <h1>{heading}</h1>
-      <p>{description}</p>
-      <button className={styles.primaryButton} onClick={onAction} type="button">
-        {action}
-      </button>
-    </div>
-  );
-}
-
-function ResultsFooter() {
-  return (
-    <footer className={styles.resultsFooter}>
-      <SourceLine />
-      <p>
-        Observation frequency does not guarantee that a species is present today. This is not an
-        identification or edibility guide.
-      </p>
-    </footer>
-  );
-}
-
-function SourceLine() {
-  return (
-    <p className={styles.source}>
-      Powered by{" "}
-      <a href="https://inaturalist.nz" target="_blank" rel="noopener noreferrer">
-        iNaturalist observations
-        <span className="sr-only"> (opens in a new tab)</span>
-      </a>
-      .
-    </p>
-  );
-}
-
 function liveMessage(state: ViewState): string {
   if (state.status === "locating") return "Finding your approximate area.";
   if (state.status === "loading") return "Loading nearby fungi.";
   if (state.status === "success") return `${state.data.results.length} fungi results loaded.`;
   if (state.status === "empty") return "No nearby fungi results found.";
   if (state.status === "idle") return "Ready to find nearby fungi.";
-  return "Nearby fungi status changed.";
+  if (state.status === "denied") return "Location access is off.";
+  if (state.status === "unsupported") return "Location is not available in this browser.";
+  if (state.status === "unavailable") return "Your approximate area could not be found.";
+  if (state.status === "outside") return "Nearby Fungi currently covers Aotearoa New Zealand.";
+  return "Nearby fungi could not be loaded.";
 }
 
 function subscribeToHydration(): () => void {

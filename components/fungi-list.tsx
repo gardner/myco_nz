@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
+import { useState } from "react";
 
 import styles from "@/components/fungi-list.module.css";
 import type { FungiResult } from "@/lib/types";
@@ -20,8 +21,10 @@ export function FungiList({ results }: { results: FungiResult[] }) {
 }
 
 function FungiCard({ result, index }: { result: FungiResult; index: number }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const displayName = result.commonName ?? "No common name listed";
-  const hasPhoto = result.image !== null;
+  const photo = imageFailed ? null : result.image;
+  const hasPhoto = photo !== null;
 
   return (
     <article className={styles.card}>
@@ -30,22 +33,19 @@ function FungiCard({ result, index }: { result: FungiResult; index: number }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           className={styles.image}
-          src={result.image?.url ?? PLACEHOLDER_URL}
+          src={photo?.url ?? PLACEHOLDER_URL}
           width={112}
           height={112}
           alt={hasPhoto ? `Photo of ${displayName} (${result.scientificName})` : ""}
           loading={index < 3 ? "eager" : "lazy"}
           decoding="async"
-          onError={(event) => {
-            event.currentTarget.src = PLACEHOLDER_URL;
-            event.currentTarget.alt = "";
-          }}
+          onError={hasPhoto ? () => setImageFailed(true) : undefined}
         />
-        {result.image && (
+        {hasPhoto && (
           <p className={styles.credit}>
-            {result.image.attribution && <span>{result.image.attribution}</span>}
-            {result.image.licenseCode && (
-              <span>{formatLicense(result.image.licenseCode)}</span>
+            {photo.attribution && <span>{photo.attribution}</span>}
+            {photo.licenseCode && (
+              <span>{formatLicense(photo.licenseCode)}</span>
             )}
           </p>
         )}
