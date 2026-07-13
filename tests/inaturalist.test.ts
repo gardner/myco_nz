@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildObservationsUrl,
   buildSpeciesCountsUrl,
+  buildTaxonPhotosUrl,
   InvalidUpstreamResponseError,
   normaliseSpeciesCounts,
 } from "@/lib/inaturalist";
@@ -16,6 +17,15 @@ const query = {
 };
 
 describe("iNaturalist URL policy", () => {
+  it("builds an encoded taxon photo browser URL", () => {
+    expect(buildTaxonPhotosUrl(500194, "Rossbeevera pachydermis")).toBe(
+      "https://www.inaturalist.nz/taxa/500194-Rossbeevera-pachydermis/browse_photos",
+    );
+    expect(buildTaxonPhotosUrl(123, "Fungus / test #1")).toBe(
+      "https://www.inaturalist.nz/taxa/123-Fungus-%2F-test-%231/browse_photos",
+    );
+  });
+
   it("builds a fixed species-count query", () => {
     const url = new URL(buildSpeciesCountsUrl(query));
 

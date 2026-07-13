@@ -21,6 +21,16 @@
   min-width: 0;
 }
 
+.photoLink {
+  display: block;
+  border-radius: 6px;
+}
+
+.photoLink:focus-visible {
+  outline: 3px solid var(--action);
+  outline-offset: 3px;
+}
+
 .image {
   display: block;
   width: 88px;

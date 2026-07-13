@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 
 import styles from "@/components/fungi-list.module.css";
+import { buildTaxonPhotosUrl } from "@/lib/inaturalist";
 import type { FungiResult } from "@/lib/types";
 
 const PLACEHOLDER_URL = "/fungi-placeholder.svg";
@@ -25,22 +26,35 @@ function FungiCard({ result, index }: { result: FungiResult; index: number }) {
   const displayName = result.commonName ?? "No common name listed";
   const photo = imageFailed ? null : result.image;
   const hasPhoto = photo !== null;
+  const photoLinkName = result.commonName ?? result.scientificName;
 
   return (
     <article className={styles.card}>
       <div className={styles.media}>
-        {/* Direct source thumbnails preserve iNaturalist attribution without an image proxy. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className={styles.image}
-          src={photo?.url ?? PLACEHOLDER_URL}
-          width={112}
-          height={112}
-          alt={hasPhoto ? `Photo of ${displayName} (${result.scientificName})` : ""}
-          loading={index < 3 ? "eager" : "lazy"}
-          decoding="async"
-          onError={hasPhoto ? () => setImageFailed(true) : undefined}
-        />
+        <a
+          className={styles.photoLink}
+          href={buildTaxonPhotosUrl(result.taxonId, result.scientificName)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Browse photos of ${photoLinkName} on iNaturalist NZ (opens in a new tab)`}
+        >
+          {/* Direct source thumbnails preserve iNaturalist attribution without an image proxy. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className={styles.image}
+            src={photo?.url ?? PLACEHOLDER_URL}
+            width={112}
+            height={112}
+            alt={
+              hasPhoto
+                ? `Photo of ${displayName} (${result.scientificName})`
+                : ""
+            }
+            loading={index < 3 ? "eager" : "lazy"}
+            decoding="async"
+            onError={hasPhoto ? () => setImageFailed(true) : undefined}
+          />
+        </a>
         {hasPhoto && (
           <p className={styles.credit}>
             {photo.attribution && <span>{photo.attribution}</span>}

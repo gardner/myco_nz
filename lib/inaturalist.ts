@@ -3,6 +3,7 @@ import type { FungiImage, FungiResponse, FungiResult } from "@/lib/types";
 
 const SPECIES_COUNTS_URL = "https://api.inaturalist.org/v1/observations/species_counts";
 const OBSERVATIONS_URL = "https://inaturalist.nz/observations";
+const TAXA_URL = "https://www.inaturalist.nz/taxa";
 
 type QueryLocation = {
   centreLat: number;
@@ -51,6 +52,14 @@ export function buildObservationsUrl(
     month: input.months.join(","),
     quality_grade: "research",
   });
+}
+
+export function buildTaxonPhotosUrl(
+  taxonId: number,
+  scientificName: string,
+): string {
+  const slug = encodeURIComponent(scientificName.trim().replace(/\s+/g, "-"));
+  return `${TAXA_URL}/${taxonId}-${slug}/browse_photos`;
 }
 
 export function normaliseSpeciesCounts(input: NormalisationInput): FungiResponse {

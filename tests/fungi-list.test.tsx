@@ -25,6 +25,33 @@ describe("FungiList", () => {
     });
   });
 
+  it("links the photo to the taxon's iNaturalist photo browser", () => {
+    const result = {
+      ...fungiResponse.results[0],
+      taxonId: 500194,
+      commonName: null,
+      scientificName: "Rossbeevera pachydermis",
+    };
+    render(<FungiList results={[result]} />);
+
+    const photoLink = screen.getByRole("link", {
+      name: /browse photos of rossbeevera pachydermis/i,
+    });
+
+    expect(photoLink).toHaveAttribute(
+      "href",
+      "https://www.inaturalist.nz/taxa/500194-Rossbeevera-pachydermis/browse_photos",
+    );
+    expect(photoLink).toMatchObject({
+      target: "_blank",
+      rel: "noopener noreferrer",
+    });
+    expect(photoLink).toContainElement(screen.getByRole("img"));
+    expect(
+      screen.getByRole("link", { name: /view nearby observations/i }),
+    ).toBeVisible();
+  });
+
   it("uses defined name and image fallbacks", () => {
     const result = {
       ...fungiResponse.results[0],
