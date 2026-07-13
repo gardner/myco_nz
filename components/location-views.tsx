@@ -42,7 +42,18 @@ export function LocationGate({
       </button>
       <p className={styles.privacy}>
         <LockKeyhole aria-hidden="true" size={17} />
-        Your exact location stays on this device. We send only an approximate area.
+        <span>
+          Your exact location stays on this device. We send only{" "}
+          <a
+            href="https://h3geo.org/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            an approximate area
+            <span className="sr-only"> (opens H3 documentation in a new tab)</span>
+          </a>
+          .
+        </span>
       </p>
       <SourceLine />
     </div>

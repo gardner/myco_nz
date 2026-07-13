@@ -76,6 +76,12 @@
   color: var(--accent-dark);
 }
 
+.privacy a {
+  color: var(--action);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
 .source {
   margin: 28px 0 0;
   color: var(--text-muted);

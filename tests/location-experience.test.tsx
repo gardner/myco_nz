@@ -42,6 +42,11 @@ describe("LocationExperience", () => {
     expect(screen.getByRole("heading", { name: "Fungi likely near you" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Show fungi near me" })).toBeVisible();
     expect(screen.getByText(/exact location stays on this device/i)).toBeVisible();
+    expect(screen.getByRole("link", { name: /an approximate area/i })).toMatchObject({
+      href: "https://h3geo.org/docs",
+      target: "_blank",
+      rel: "noopener noreferrer",
+    });
   });
 
   it("converts location locally, fetches only by cell, and renders results", async () => {
