@@ -12,6 +12,7 @@ import {
 } from "@/components/location-views";
 import {
   getApproximateCell,
+  getLocationSeed,
   LocationAccessError,
   readStoredLocation,
   storeLocationCell,
@@ -85,8 +86,10 @@ export function LocationExperience() {
 
   useEffect(() => {
     const stored = readStoredLocation();
-    const restoreTimer = stored
-      ? window.setTimeout(() => void loadResults(stored.cell), 0)
+    const seedDisabled = new URLSearchParams(window.location.search).has("disable_location_seed");
+    const initialCell = stored?.cell ?? (seedDisabled ? null : getLocationSeed());
+    const restoreTimer = initialCell
+      ? window.setTimeout(() => void loadResults(initialCell), 0)
       : undefined;
     return () => {
       if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);

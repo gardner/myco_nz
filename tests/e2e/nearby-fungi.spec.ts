@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 import { fungiResponse } from "../fixtures";
 
 const exactLocation = { latitude: -41.28664, longitude: 174.77557 };
+const appPath = "/?disable_location_seed=1";
 
 test.describe("Nearby Fungi", () => {
   test.use({
@@ -25,7 +26,7 @@ test.describe("Nearby Fungi", () => {
       });
     });
 
-    await page.goto("/");
+    await page.goto(appPath);
     await page.getByRole("button", { name: "Show fungi near me" }).click();
 
     await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeVisible();
@@ -69,7 +70,7 @@ test.describe("Nearby Fungi", () => {
       }),
     );
 
-    await page.goto("/");
+    await page.goto(appPath);
 
     await expect(page.getByText("White Basket Fungus")).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh location" })).toBeVisible();
@@ -89,7 +90,7 @@ test("shows a recovery path when location permission is denied", async ({ browse
   });
   const page = await context.newPage();
 
-  await page.goto("/");
+  await page.goto(appPath);
   await page.getByRole("button", { name: "Show fungi near me" }).click();
 
   await expect(page.getByRole("heading", { name: "Location access is off" })).toBeVisible();
@@ -119,7 +120,7 @@ test("keeps the result column readable on desktop", async ({ page }, testInfo) =
     }),
   );
 
-  await page.goto("/");
+  await page.goto(appPath);
   await expect(page.getByRole("article")).toHaveCount(3);
   await expect
     .poll(() => page.getByRole("img", { name: /photo of white basket fungus/i }).evaluate((image) => (image as HTMLImageElement).naturalWidth))

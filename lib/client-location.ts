@@ -19,6 +19,12 @@ export class LocationAccessError extends Error {
   }
 }
 
+export function getLocationSeed(
+  value: string | undefined = process.env.NEXT_PUBLIC_LOCATION_SEED,
+): string | null {
+  return value && RESOLUTION_SIX_CELL.test(value) ? value : null;
+}
+
 export async function getApproximateCell(
   geolocation: Geolocation | null = navigator.geolocation,
 ): Promise<string> {

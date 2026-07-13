@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   getApproximateCell,
+  getLocationSeed,
   LocationAccessError,
   readStoredLocation,
   STORAGE_KEY,
@@ -110,5 +111,14 @@ describe("stored approximate location", () => {
   ])("ignores %s storage", (_, value) => {
     localStorage.setItem(STORAGE_KEY, value);
     expect(readStoredLocation(localStorage, now)).toBeNull();
+  });
+});
+
+describe("development location seed", () => {
+  it("accepts only a canonical resolution 6 cell", () => {
+    expect(getLocationSeed("86da96487ffffff")).toBe("86da96487ffffff");
+    expect(getLocationSeed("86DA96487FFFFFF")).toBeNull();
+    expect(getLocationSeed("87da96480ffffff")).toBeNull();
+    expect(getLocationSeed(undefined)).toBeNull();
   });
 });

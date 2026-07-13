@@ -19,6 +19,8 @@ pnpm dev
 
 The app runs at [http://localhost:3001](http://localhost:3001).
 
+For local development without browser geolocation, set `NEXT_PUBLIC_LOCATION_SEED` to a resolution 6 H3 cell in `.env.development.local`. This seed is not loaded by production builds.
+
 ## Quality Checks
 
 ```bash
