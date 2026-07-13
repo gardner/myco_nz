@@ -1,10 +1,12 @@
 # Nearby Fungi
 
-Nearby Fungi is a mobile-first view of the fungi most often recorded near an approximate area at the current time of year. It uses public iNaturalist research-grade observation counts and links every result back to the matching observations on iNaturalist NZ.
+Nearby Fungi is a mobile-first view of the fungi most often recorded near an approximate area at a selected time of year. It uses public iNaturalist research-grade observation counts and links every result back to the matching observations on iNaturalist NZ.
 
 ## Privacy Model
 
-The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Users can instead choose a point on the static `/map` fallback; that point is converted and discarded the same way. Only the cell, resolution, and update time are stored locally. Network requests contain the approximate cell, never the original coordinates.
+The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Users can instead choose a point on the static `/map` fallback; that point is converted and discarded the same way. Only the cell, resolution, and update time are stored locally. Network requests and shareable URLs contain the approximate cell and selected month, never the original coordinates.
+
+Result pages use `/?cell=<resolution-6-H3>&month=<1-12>`. The 12-box month selector updates this URL and reloads the matching seasonal window, so the current view can be shared directly.
 
 The server converts the shared cell to its centre, applies fixed 30 km and seasonal filters, and returns a normalized response. There are no accounts, analytics, database, KV namespace, R2 bucket, map SDK, tile service, or iNaturalist credentials.
 

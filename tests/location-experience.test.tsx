@@ -35,6 +35,7 @@ function fetchResponse(body: unknown, status = 200) {
 
 describe("LocationExperience", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/");
     localStorage.clear();
     sessionStorage.clear();
     replaceMock.mockClear();
@@ -80,6 +81,9 @@ describe("LocationExperience", () => {
     expect(requestedUrl).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
     expect(requestedUrl).not.toContain(String(exactLatitude));
     expect(requestedUrl).not.toContain(String(exactLongitude));
+    expect(window.location.search).toBe(
+      `?cell=86bb2955fffffff&month=${new Date().getMonth() + 1}`,
+    );
   });
 
   it("automatically loads a fresh stored cell without requesting location", async () => {

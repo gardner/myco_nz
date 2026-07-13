@@ -1,0 +1,75 @@
+.selector {
+  width: 100%;
+  min-width: 0;
+  margin-top: 12px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.months {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(44px, 1fr));
+  min-width: 528px;
+}
+
+.option {
+  position: relative;
+  min-width: 0;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+}
+
+.month {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 44px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.option + .option .month {
+  border-left: 0;
+}
+
+.option:first-child .month {
+  border-radius: 4px 0 0 4px;
+}
+
+.option:last-child .month {
+  border-radius: 0 4px 4px 0;
+}
+
+.input:checked + .month {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-weight: 850;
+  background: var(--action);
+  border-color: var(--action);
+  box-shadow: inset 0 -3px rgb(255 255 255 / 55%);
+}
+
+.input:focus-visible + .month {
+  position: relative;
+  z-index: 2;
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.input:disabled + .month {
+  cursor: wait;
+  opacity: 0.68;
+}

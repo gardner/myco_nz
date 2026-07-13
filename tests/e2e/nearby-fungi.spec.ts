@@ -2,10 +2,26 @@ import AxeBuilder from "@axe-core/playwright";
 import { latLngToCell } from "h3-js";
 import { expect, test } from "@playwright/test";
 
+import { getSeasonalMonths } from "../../lib/months";
 import { fungiResponse } from "../fixtures";
 
 const exactLocation = { latitude: -41.28664, longitude: 174.77557 };
 const appPath = "/?disable_location_seed=1";
+const currentMonth = new Date().getMonth() + 1;
+
+function fungiResponseForUrl(url: string) {
+  const path = new URL(url).pathname.split("/");
+  const month = Number(path.at(-1));
+  return {
+    ...fungiResponse,
+    query: {
+      ...fungiResponse.query,
+      cell: path.at(-2),
+      requestedMonth: month,
+      includedMonths: getSeasonalMonths(month),
+    },
+  };
+}
 
 test.describe("Nearby Fungi", () => {
   test.use({
@@ -23,7 +39,7 @@ test.describe("Nearby Fungi", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(fungiResponse),
+        body: JSON.stringify(fungiResponseForUrl(route.request().url())),
       });
     });
 
@@ -47,6 +63,9 @@ test.describe("Nearby Fungi", () => {
     expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
     expect(apiRequests[0]).not.toContain(String(exactLocation.latitude));
     expect(apiRequests[0]).not.toContain(String(exactLocation.longitude));
+    await expect(page).toHaveURL(
+      `/?cell=86bb2955fffffff&month=${currentMonth}`,
+    );
 
     const observationsLink = page.getByRole("link", { name: /view nearby observations/i }).first();
     await expect(observationsLink).toHaveAttribute("target", "_blank");
@@ -77,7 +96,7 @@ test.describe("Nearby Fungi", () => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(fungiResponse),
+        body: JSON.stringify(fungiResponseForUrl(route.request().url())),
       }),
     );
 
@@ -131,7 +150,7 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(fungiResponse),
+      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
     });
   });
   await page.goto("/map");
@@ -152,7 +171,9 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
   const expectedCell = latLngToCell(selection.latitude, selection.longitude, 6);
   await page.mouse.click(selection.x, selection.y);
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(
+    `/?cell=${expectedCell}&month=${currentMonth}`,
+  );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
   await expect(page.getByRole("article")).toHaveCount(3);
   expect(apiRequests).toHaveLength(1);
@@ -200,7 +221,7 @@ test("uses the named Chatham selection when browser storage is blocked", async (
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(fungiResponse),
+      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
     });
   });
   await page.goto("/map");
@@ -210,7 +231,9 @@ test("uses the named Chatham selection when browser storage is blocked", async (
   await namedArea.selectOption("waitangi");
   await page.getByRole("button", { name: "Show fungi near this area" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(
+    `/?cell=86bb364d7ffffff&month=${currentMonth}`,
+  );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
   expect(apiRequests).toHaveLength(1);
   expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb364d7ffffff/");
@@ -233,7 +256,7 @@ test("keeps the result column readable on desktop", async ({ page }, testInfo) =
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(fungiResponse),
+      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
     }),
   );
 

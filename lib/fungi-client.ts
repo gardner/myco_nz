@@ -1,6 +1,10 @@
 import type { FungiResponse } from "@/lib/types";
 
-export type ClientErrorCode = "outside-new-zealand" | "unavailable" | "invalid-response";
+export type ClientErrorCode =
+  | "invalid-location"
+  | "outside-new-zealand"
+  | "unavailable"
+  | "invalid-response";
 
 export class FungiClientError extends Error {
   constructor(public readonly code: ClientErrorCode) {
@@ -19,12 +23,19 @@ export async function fetchFungi(
     signal,
   });
 
+  if (response.status === 400) throw new FungiClientError("invalid-location");
   if (response.status === 422) throw new FungiClientError("outside-new-zealand");
   if (!response.ok) throw new FungiClientError("unavailable");
 
   const payload: unknown = await response.json();
-  if (!isFungiResponse(payload)) throw new FungiClientError("invalid-response");
+  if (!isFungiResponse(payload) || !matchesRequest(payload, cell, month)) {
+    throw new FungiClientError("invalid-response");
+  }
   return payload;
+}
+
+function matchesRequest(payload: FungiResponse, cell: string, month: number): boolean {
+  return payload.query.cell === cell && payload.query.requestedMonth === month;
 }
 
 function isFungiResponse(value: unknown): value is FungiResponse {

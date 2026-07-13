@@ -3,6 +3,7 @@ import { ExternalLink, LocateFixed, LockKeyhole, MapPinned, RefreshCw } from "lu
 
 import { FungiList } from "@/components/fungi-list";
 import styles from "@/components/location-experience.module.css";
+import { MonthSelector } from "@/components/month-selector";
 import { formatSeasonalRange } from "@/lib/months";
 import type { FungiResponse } from "@/lib/types";
 
@@ -65,30 +66,50 @@ export function LocationGate({
   );
 }
 
-export function LoadingView({ onRefresh }: { onRefresh: () => void }) {
+export function ResultsView({
+  data,
+  month,
+  onRefresh,
+  onSelectMonth,
+}: {
+  data?: FungiResponse;
+  month: number;
+  onRefresh: () => void;
+  onSelectMonth: (month: number) => void;
+}) {
   return (
     <>
-      <ResultsHeader onRefresh={onRefresh} />
+      <ResultsHeader data={data} onRefresh={onRefresh} />
+      <MonthSelector selectedMonth={month} onSelect={onSelectMonth} />
+      <ResultsBody data={data} onRefresh={onRefresh} />
+    </>
+  );
+}
+
+function ResultsBody({
+  data,
+  onRefresh,
+}: {
+  data?: FungiResponse;
+  onRefresh: () => void;
+}) {
+  if (!data) {
+    return (
       <div className={styles.skeletonList} aria-hidden="true">
         {Array.from({ length: 6 }, (_, index) => (
           <div className={styles.skeleton} key={index} />
         ))}
       </div>
-    </>
-  );
-}
-
-export function ResultsView({ data, onRefresh }: { data: FungiResponse; onRefresh: () => void }) {
-  return (
-    <>
-      <ResultsHeader data={data} onRefresh={onRefresh} />
-      <FungiList results={data.results} />
-      <ResultsFooter />
-    </>
-  );
-}
-
-export function EmptyView({ data, onRefresh }: { data: FungiResponse; onRefresh: () => void }) {
+    );
+  }
+  if (data.results.length) {
+    return (
+      <>
+        <FungiList results={data.results} />
+        <ResultsFooter />
+      </>
+    );
+  }
   return (
     <>
       <StatusView

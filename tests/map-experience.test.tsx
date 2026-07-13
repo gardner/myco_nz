@@ -45,7 +45,11 @@ describe("MapExperience", () => {
       clientY: 41.2706,
     });
 
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/"));
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith(
+        `/?cell=86da96487ffffff&month=${new Date().getMonth() + 1}`,
+      ),
+    );
     const stored = localStorage.getItem(STORAGE_KEY) ?? "";
     expect(JSON.parse(stored)).toMatchObject({
       version: 1,
@@ -66,7 +70,11 @@ describe("MapExperience", () => {
     expect(navigation.push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near this area" }));
 
-    await waitFor(() => expect(navigation.push).toHaveBeenCalledWith("/"));
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith(
+        `/?cell=86da96487ffffff&month=${new Date().getMonth() + 1}`,
+      ),
+    );
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}")).toMatchObject({
       cell: "86da96487ffffff",
       resolution: 6,

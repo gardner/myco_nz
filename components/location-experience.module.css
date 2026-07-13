@@ -177,7 +177,7 @@
 .skeletonList {
   display: grid;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 14px;
 }
 
 .skeleton {

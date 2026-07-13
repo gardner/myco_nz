@@ -49,4 +49,23 @@ describe("fetchFungi", () => {
       fetchFungi("86bb2955fffffff", 7, new AbortController().signal),
     ).rejects.toEqual(new FungiClientError("invalid-response"));
   });
+
+  it.each([
+    ["cell", { cell: "86da69a4fffffff" }],
+    ["month", { requestedMonth: 8 }],
+  ])("rejects a response for a different requested %s", async (_, query) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          ...fungiResponse,
+          query: { ...fungiResponse.query, ...query },
+        }),
+      ),
+    );
+
+    await expect(
+      fetchFungi("86bb2955fffffff", 7, new AbortController().signal),
+    ).rejects.toEqual(new FungiClientError("invalid-response"));
+  });
 });

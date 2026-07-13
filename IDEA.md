@@ -131,7 +131,8 @@ The frontend must not assume that every result came only from one local cell. Co
 5. The client requests the canonical cell-and-month API URL.
 6. Loading skeletons appear while data is fetched.
 7. The ranked result list appears.
-8. The H3 cell and timestamp are saved locally for future visits.
+8. The browser URL is replaced with the approximate H3 cell and selected month for sharing.
+9. The H3 cell and timestamp are saved locally for future visits.
 
 ### Returning visit
 
@@ -141,9 +142,11 @@ The frontend must not assume that every result came only from one local cell. Co
 
 ### Result exploration
 
-1. The user scans common names, scientific names, images, and counts.
-2. The user taps **View nearby observations**.
-3. A new tab opens on `inaturalist.nz/observations` filtered to the taxon, seasonal months, approximate cell centre, and search radius.
+1. The user can choose any month from a 12-box selector above the ranked list.
+2. The URL and result list update to the same approximate cell and selected month.
+3. The user scans common names, scientific names, images, and counts.
+4. The user taps **View nearby observations**.
+5. A new tab opens on `inaturalist.nz/observations` filtered to the taxon, seasonal months, approximate cell centre, and search radius.
 
 ## 1.8 Information architecture and screens
 
@@ -272,6 +275,8 @@ Return the top 20 results. Request up to 30 upstream if useful for resilience, b
 | FR-012 | The response must include coverage metadata that can represent later nearby-cell or wider-radius expansion. |
 | FR-013 | The application must provide a useful denied-location, no-result, and upstream-error state. |
 | FR-014 | The `/map` fallback must use route-isolated static SVG geometry with no map SDK, tile service, or geocoder. |
+| FR-015 | Results must provide a 12-box month selector immediately above the ranked list and visibly distinguish the selected month. |
+| FR-016 | The browser URL must contain the canonical approximate H3 cell and selected month so the result view can be shared and restored without geolocation. |
 
 ## 1.12 Responsive design requirements
 
@@ -351,6 +356,7 @@ The MVP is ready to release when:
 8. Location denial, missing photos, missing common names, no results, and upstream failure have tested interfaces.
 9. Automated unit, integration, accessibility, and mobile end-to-end tests pass.
 10. There is no database, KV, R2, map library, or iNaturalist authentication dependency.
+11. A shared cell-and-month URL restores the same result query, and all 12 months remain usable at the mobile baseline.
 
 # 2. Implementation Specification
 

@@ -74,6 +74,15 @@ export function storeLocationCell(
   }
 }
 
+export function clearStoredLocationCell(cell: string, storage?: Storage): void {
+  try {
+    const target = storage ?? localStorage;
+    if (readStoredLocation(target)?.cell === cell) target.removeItem(STORAGE_KEY);
+  } catch {
+    // A blocked storage API should not prevent recovery from an invalid location.
+  }
+}
+
 export function handoffLocationCell(cell: string, storage?: Storage): void {
   locationHandoff = cell;
   storeLocationCell(cell, storage);

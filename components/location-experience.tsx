@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import styles from "@/components/location-experience.module.css";
 import {
   BrandHeader,
-  EmptyView,
-  LoadingView,
   LocationGate,
   ResultsView,
   StatusView,
@@ -15,6 +13,7 @@ import {
 import {
   consumeLocationHandoff,
   consumeResultsFocus,
+  clearStoredLocationCell,
   getApproximateCell,
   getLocationSeed,
   LocationAccessError,
@@ -22,42 +21,53 @@ import {
   storeLocationCell,
 } from "@/lib/client-location";
 import { fetchFungi, FungiClientError } from "@/lib/fungi-client";
+import {
+  buildSharedLocationUrl,
+  parseSharedLocationSearch,
+} from "@/lib/shared-location";
 import type { FungiResponse } from "@/lib/types";
 
 type ViewState =
   | { status: "idle" | "locating" | "unsupported" | "unavailable" }
-  | { status: "loading"; cell: string }
-  | { status: "success" | "empty"; data: FungiResponse; cell: string }
-  | { status: "error" | "outside"; cell: string };
+  | { status: "loading"; cell: string; month: number }
+  | { status: "success" | "empty"; data: FungiResponse; cell: string; month: number }
+  | { status: "error" | "invalid" | "outside"; cell: string; month: number };
+
+type InitialSelection = Readonly<{
+  cell: string | null;
+  month: number;
+  shouldFocus: boolean;
+}>;
 
 export function LocationExperience() {
   const router = useRouter();
   const [state, setState] = useState<ViewState>({ status: "idle" });
   const activeRequest = useRef<AbortController | null>(null);
   const operationGeneration = useRef(0);
+  const selectedMonth = useRef(currentMonth());
   const focusAfterAction = useRef(false);
   const experience = useRef<HTMLElement | null>(null);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
-  const loadResults = useCallback(async (cell: string, generation?: number) => {
+  const loadResults = useCallback(async (cell: string, month: number, generation?: number) => {
     const currentGeneration = generation ?? ++operationGeneration.current;
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
-    setState({ status: "loading", cell });
+    selectedMonth.current = month;
+    window.history.replaceState(window.history.state, "", buildSharedLocationUrl(cell, month));
+    setState({ status: "loading", cell, month });
 
     try {
-      const month = new Date().getMonth() + 1;
       const data = await fetchFungi(cell, month, controller.signal);
       if (currentGeneration !== operationGeneration.current) return;
-      setState({ status: data.results.length ? "success" : "empty", data, cell });
+      storeLocationCell(cell);
+      setState({ status: data.results.length ? "success" : "empty", data, cell, month });
     } catch (error) {
       if (controller.signal.aborted || currentGeneration !== operationGeneration.current) return;
-      const status =
-        error instanceof FungiClientError && error.code === "outside-new-zealand"
-          ? "outside"
-          : "error";
-      setState({ status, cell });
+      const status = resultErrorStatus(error);
+      if (status === "invalid" || status === "outside") clearStoredLocationCell(cell);
+      setState({ status, cell, month });
     }
   }, []);
 
@@ -69,8 +79,7 @@ export function LocationExperience() {
     try {
       const cell = await getApproximateCell(navigator.geolocation ?? null);
       if (currentGeneration !== operationGeneration.current) return;
-      storeLocationCell(cell);
-      await loadResults(cell, currentGeneration);
+      await loadResults(cell, selectedMonth.current, currentGeneration);
     } catch (error) {
       if (currentGeneration !== operationGeneration.current) return;
       if (!(error instanceof LocationAccessError)) {
@@ -85,25 +94,13 @@ export function LocationExperience() {
     }
   }, [loadResults, router]);
 
-  const retryResults = useCallback(
-    async (cell: string) => {
-      focusAfterAction.current = true;
-      await loadResults(cell);
-    },
-    [loadResults],
-  );
-
   useEffect(() => {
-    const handedOffCell = consumeLocationHandoff();
-    const stored = readStoredLocation();
-    const seedDisabled = new URLSearchParams(window.location.search).has("disable_location_seed");
-    const initialCell = handedOffCell ?? stored?.cell ?? (seedDisabled ? null : getLocationSeed());
-    const markedForFocus = initialCell ? consumeResultsFocus() : false;
-    const focusRestoredResults = Boolean(handedOffCell) || markedForFocus;
-    const restoreTimer = initialCell
+    const initial = getInitialSelection(window.location.search);
+    const cell = initial.cell;
+    const restoreTimer = cell
       ? window.setTimeout(() => {
-          focusAfterAction.current = focusRestoredResults;
-          void loadResults(initialCell);
+          focusAfterAction.current = initial.shouldFocus;
+          void loadResults(cell, initial.month);
         }, 0)
       : undefined;
     return () => {
@@ -123,7 +120,7 @@ export function LocationExperience() {
 
   return (
     <section className={styles.experience} ref={experience}>
-      {state.status !== "loading" && state.status !== "success" && <BrandHeader />}
+      {!hasResultsShell(state) && <BrandHeader />}
       <p className="sr-only" role="status" aria-live="polite">
         {liveMessage(state)}
       </p>
@@ -131,7 +128,7 @@ export function LocationExperience() {
         state={state}
         hydrated={hydrated}
         requestLocation={requestLocation}
-        loadResults={retryResults}
+        loadResults={loadResults}
       />
     </section>
   );
@@ -146,22 +143,37 @@ function StateView({
   state: ViewState;
   hydrated: boolean;
   requestLocation: () => Promise<void>;
-  loadResults: (cell: string) => Promise<void>;
+  loadResults: (cell: string, month: number) => Promise<void>;
 }) {
   switch (state.status) {
     case "loading":
-      return <LoadingView onRefresh={requestLocation} />;
     case "success":
-      return <ResultsView data={state.data} onRefresh={requestLocation} />;
     case "empty":
-      return <EmptyView data={state.data} onRefresh={requestLocation} />;
+      return (
+        <ResultsView
+          data={state.status === "loading" ? undefined : state.data}
+          month={state.month}
+          onRefresh={requestLocation}
+          onSelectMonth={(month) => loadResults(state.cell, month)}
+        />
+      );
+    case "invalid":
+      return (
+        <StatusView
+          heading="This shared area isn't valid"
+          description="Choose an area on the map or refresh your location to continue."
+          action="Refresh location"
+          onAction={requestLocation}
+          secondaryAction={{ href: "/map", label: "Choose on map" }}
+        />
+      );
     case "error":
       return (
         <StatusView
           heading="We couldn't load fungi right now"
           description="iNaturalist may be temporarily unavailable. Your approximate area is ready to retry."
           action="Try again"
-          onAction={() => loadResults(state.cell)}
+          onAction={() => loadResults(state.cell, state.month)}
         />
       );
     case "outside":
@@ -171,6 +183,7 @@ function StateView({
           description="Refresh your location when you are back within the supported area."
           action="Refresh location"
           onAction={requestLocation}
+          secondaryAction={{ href: "/map", label: "Choose on map" }}
         />
       );
     case "unsupported":
@@ -209,9 +222,43 @@ function liveMessage(state: ViewState): string {
   if (state.status === "unsupported") return "Location is not available in this browser.";
   if (state.status === "unavailable") return "Your approximate area could not be found.";
   if (state.status === "outside") return "Nearby Fungi currently covers Aotearoa New Zealand.";
+  if (state.status === "invalid") return "This shared area is not valid.";
   return "Nearby fungi could not be loaded.";
 }
 
 function subscribeToHydration(): () => void {
   return () => undefined;
+}
+
+function currentMonth(): number {
+  return new Date().getMonth() + 1;
+}
+
+function hasResultsShell(state: ViewState): boolean {
+  return state.status === "loading" || state.status === "success" || state.status === "empty";
+}
+
+function resultErrorStatus(error: unknown): "error" | "invalid" | "outside" {
+  if (!(error instanceof FungiClientError)) return "error";
+  if (error.code === "invalid-location") return "invalid";
+  if (error.code === "outside-new-zealand") return "outside";
+  return "error";
+}
+
+function getInitialSelection(search: string): InitialSelection {
+  const handedOffCell = consumeLocationHandoff();
+  const shared = parseSharedLocationSearch(search);
+  const stored = readStoredLocation();
+  const storedCell = stored ? stored.cell : null;
+  const seedDisabled = new URLSearchParams(search).has("disable_location_seed");
+  const seedCell = seedDisabled ? null : getLocationSeed();
+  const candidates = [shared ? shared.cell : null, handedOffCell, storedCell, seedCell];
+  const cell =
+    candidates.find((candidate): candidate is string => typeof candidate === "string") ?? null;
+  const markedForFocus = cell ? consumeResultsFocus() : false;
+  return {
+    cell,
+    month: shared ? shared.month : currentMonth(),
+    shouldFocus: handedOffCell ? true : markedForFocus,
+  };
 }

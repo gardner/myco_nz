@@ -25,6 +25,7 @@ import {
   MAINLAND_PATHS,
   MAINLAND_VIEW_BOX,
 } from "@/lib/nz-map-geometry";
+import { buildSharedLocationUrl } from "@/lib/shared-location";
 
 type NamedArea = Readonly<{
   id: string;
@@ -101,7 +102,7 @@ export function MapExperience() {
         if (generation !== operationGeneration.current) return;
         handoffLocationCell(cell);
         markResultsForFocus();
-        router.push("/");
+        router.push(buildSharedLocationUrl(cell, new Date().getMonth() + 1));
       } catch {
         if (generation !== operationGeneration.current) return;
         setSelecting(false);
