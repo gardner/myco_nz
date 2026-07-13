@@ -123,6 +123,9 @@ describe("LocationExperience", () => {
     expect(refreshButton).toBeVisible();
     expect(refreshButton).toHaveAttribute("title", "Refresh location");
     expect(refreshButton).toHaveTextContent("");
+    expect(
+      refreshButton.querySelector('[data-icon="new-zealand"]'),
+    ).toBeInTheDocument();
     expect(brand.closest("header")).toBe(heading.closest("header"));
     expect(refreshButton.closest("header")).toBe(heading.closest("header"));
   });

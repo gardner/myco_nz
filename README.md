@@ -12,8 +12,6 @@ The browser validates the cell and month, converts the cell to its centre, and s
 
 Requests omit credentials and do not add a custom `User-Agent` or `X-Via` header. A client-side coordinator applies a 10-second request deadline, spaces requests at least one second apart, cancels obsolete month selections, and waits at least 10 seconds after an iNaturalist `429` before another request. There are no accounts, analytics, application data API, database, KV namespace, R2 bucket, map SDK, tile service, or iNaturalist credentials.
 
-Legacy `/api/fungi/v1/en-NZ/r6/<cell>/<month>` links permanently redirect to the equivalent shareable page. The compatibility route never contacts iNaturalist.
-
 The static New Zealand outline is derived from Natural Earth 1:10m Admin 0 - Countries v5.1.1, which is public-domain data.
 
 ## Development

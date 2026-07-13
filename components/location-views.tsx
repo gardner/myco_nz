@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ExternalLink, LocateFixed, LockKeyhole, MapPinned, RefreshCw } from "lucide-react";
+import { ExternalLink, LocateFixed, LockKeyhole, MapPinned } from "lucide-react";
 
 import { FungiList } from "@/components/fungi-list";
 import styles from "@/components/location-experience.module.css";
 import { MonthSelector } from "@/components/month-selector";
+import { NzMapIcon } from "@/components/nz-map-icon";
 import { formatSeasonalRange } from "@/lib/months";
 import type { FungiResponse } from "@/lib/types";
 
@@ -186,7 +187,7 @@ function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: (
         aria-label="Refresh location"
         title="Refresh location"
       >
-        <RefreshCw aria-hidden="true" size={20} />
+        <NzMapIcon />
       </button>
     </header>
   );

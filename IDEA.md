@@ -380,7 +380,7 @@ Browser
                 `-- browser normalises and validates fields and URL origins
 ```
 
-The Cloudflare Worker serves the application shell and static assets. It is not an iNaturalist data proxy and has no data API, cache binding, rate-limit binding, database, KV namespace, or R2 bucket. The legacy `/api/fungi/v1/en-NZ/r6/{cell}/{month}` path only redirects old links to the equivalent shareable page and never contacts iNaturalist.
+The Cloudflare Worker serves the application shell and static assets. It is not an iNaturalist data proxy and has no public fungi API route, cache binding, rate-limit binding, database, KV namespace, or R2 bucket.
 
 Because the species-count request is made directly, iNaturalist receives the visitor's public IP address and normal browser metadata such as `Origin`, `Referer`, and the browser's own user agent. Exact device coordinates and exact map points never appear in that request.
 
@@ -864,7 +864,6 @@ Use mocked browser geolocation:
 - Direct cross-origin iNaturalist request interception.
 - Exact mocked latitude/longitude absent from all request URLs.
 - Rapid month selection coalescing and focus retention.
-- Legacy fungi URLs redirect to the equivalent cell-and-month page without an upstream request.
 
 ## 2.18 Deployment and configuration
 
