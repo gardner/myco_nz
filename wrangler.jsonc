@@ -20,7 +20,7 @@
       "name": "INATURALIST_MISS_LIMITER",
       "namespace_id": "26071301",
       "simple": {
-        "limit": 30,
+        "limit": 60,
         "period": 60
       }
     }

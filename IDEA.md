@@ -757,13 +757,15 @@ Example binding:
       "name": "INATURALIST_MISS_LIMITER",
       "namespace_id": "1001",
       "simple": {
-        "limit": 30,
+        "limit": 60,
         "period": 60
       }
     }
   ]
 }
 ```
+
+The 60-request ceiling follows iNaturalist's requested pace of about one API call per second; successful responses are cached so normal repeat traffic does not consume that allowance.[^inat-practices]
 
 Call the limiter immediately before the upstream fetch:
 
