@@ -1,8 +1,7 @@
-import { getResolution, isValidCell, latLngToCell } from "h3-js";
-
 export const STORAGE_KEY = "nearby-fungi:location:v1";
 const H3_RESOLUTION = 6;
 const MAX_STORED_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const RESOLUTION_SIX_CELL = /^86[0-9a-f]{13}$/;
 
 export type StoredLocation = {
   version: 1;
@@ -25,16 +24,10 @@ export async function getApproximateCell(
 ): Promise<string> {
   if (!geolocation) throw new LocationAccessError("unsupported");
 
-  return new Promise((resolve, reject) => {
+  const [latitude, longitude] = await new Promise<[number, number]>((resolve, reject) => {
     geolocation.getCurrentPosition(
       (position) => {
-        resolve(
-          latLngToCell(
-            position.coords.latitude,
-            position.coords.longitude,
-            H3_RESOLUTION,
-          ),
-        );
+        resolve([position.coords.latitude, position.coords.longitude]);
       },
       (error) => {
         const code = error.code === 1 ? "denied" : "unavailable";
@@ -43,6 +36,9 @@ export async function getApproximateCell(
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 1_800_000 },
     );
   });
+
+  const { latLngToCell } = await import("h3-js");
+  return latLngToCell(latitude, longitude, H3_RESOLUTION);
 }
 
 export function storeLocationCell(
@@ -88,7 +84,6 @@ function isStoredLocation(value: unknown): value is StoredLocation {
     candidate.resolution === 6 &&
     typeof candidate.updatedAt === "string" &&
     typeof candidate.cell === "string" &&
-    isValidCell(candidate.cell) &&
-    getResolution(candidate.cell) === 6
+    RESOLUTION_SIX_CELL.test(candidate.cell)
   );
 }

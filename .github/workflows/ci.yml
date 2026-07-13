@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check generated bindings
+        run: pnpm check:bindings
+
+      - name: Static quality checks
+        run: pnpm quality
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      - name: Check vinext compatibility
+        run: pnpm check:vinext
+
+      - name: Build Worker
+        run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser and accessibility tests
+        run: pnpm test:e2e
