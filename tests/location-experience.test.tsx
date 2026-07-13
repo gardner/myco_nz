@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LocationExperience } from "@/components/location-experience";
 import { markResultsForFocus, STORAGE_KEY } from "@/lib/client-location";
+import { getSeasonalMonths } from "@/lib/months";
 import { fungiResponse } from "@/tests/fixtures";
 
 const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
@@ -31,6 +32,20 @@ function fetchResponse(body: unknown, status = 200) {
       headers: { "Content-Type": "application/json" },
     }),
   );
+}
+
+function fungiResponseForRequest(input: RequestInfo | URL) {
+  const path = String(input).split("/");
+  const month = Number(path.at(-1));
+  return {
+    ...fungiResponse,
+    query: {
+      ...fungiResponse.query,
+      cell: path.at(-2),
+      requestedMonth: month,
+      includedMonths: getSeasonalMonths(month),
+    },
+  };
 }
 
 describe("LocationExperience", () => {
@@ -66,9 +81,8 @@ describe("LocationExperience", () => {
       success({ coords: { latitude: exactLatitude, longitude: exactLongitude } } as GeolocationPosition),
     );
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      void input;
       void init;
-      return fetchResponse(fungiResponse);
+      return fetchResponse(fungiResponseForRequest(input));
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -97,7 +111,9 @@ describe("LocationExperience", () => {
       }),
     );
     const geolocation = setGeolocation(() => undefined);
-    vi.stubGlobal("fetch", vi.fn(() => fetchResponse(fungiResponse)));
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) =>
+      fetchResponse(fungiResponseForRequest(input)),
+    ));
 
     render(<LocationExperience />);
 
@@ -128,7 +144,9 @@ describe("LocationExperience", () => {
     );
     markResultsForFocus(sessionStorage);
     setGeolocation(() => undefined);
-    vi.stubGlobal("fetch", vi.fn(() => fetchResponse(fungiResponse)));
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) =>
+      fetchResponse(fungiResponseForRequest(input)),
+    ));
 
     render(<LocationExperience />);
 
@@ -143,7 +161,9 @@ describe("LocationExperience", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
 
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/map"));
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(`/map?month=${new Date().getMonth() + 1}`),
+    );
   });
 
   it("discards a pending location result after leaving the experience", async () => {
@@ -211,7 +231,9 @@ describe("LocationExperience", () => {
 
     render(<LocationExperience />);
     fireEvent.click(await screen.findByRole("button", { name: "Refresh location" }));
-    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/map"));
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(`/map?month=${new Date().getMonth() + 1}`),
+    );
 
     resolveFetch?.(
       new Response(JSON.stringify(fungiResponse), {
@@ -227,7 +249,9 @@ describe("LocationExperience", () => {
     const geolocation = setGeolocation((success) =>
       success({ coords: { latitude: -41.28664, longitude: 174.77557 } } as GeolocationPosition),
     );
-    const fetchMock = vi.fn(() => fetchResponse({ ...fungiResponse, results: [] }));
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      fetchResponse({ ...fungiResponseForRequest(input), results: [] }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const { unmount } = render(<LocationExperience />);

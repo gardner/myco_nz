@@ -123,7 +123,7 @@ test("routes denied location access to the map", async ({ browser }, testInfo) =
   await page.goto(appPath);
   await page.getByRole("button", { name: "Show fungi near me" }).click();
 
-  await expect(page).toHaveURL(/\/map$/);
+  await expect(page).toHaveURL(new RegExp(`/map\\?month=${currentMonth}$`));
   const heading = page.getByRole("heading", { name: "Choose an area" });
   await expect(heading).toBeFocused();
   await expect(page.getByRole("img", { name: /map of aotearoa new zealand/i })).toBeVisible();
@@ -134,7 +134,7 @@ test("routes denied location access to the map", async ({ browser }, testInfo) =
   await expect(namedAreaButton).toBeEnabled();
   expect((await namedArea.boundingBox())?.height).toBeGreaterThanOrEqual(48);
   expect((await namedAreaButton.boundingBox())?.height).toBeGreaterThanOrEqual(48);
-  await expect(page).toHaveURL(/\/map$/);
+  await expect(page).toHaveURL(new RegExp(`/map\\?month=${currentMonth}$`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);

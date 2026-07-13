@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 
 describe("MapExperience", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "/map");
     localStorage.clear();
     sessionStorage.clear();
     navigation.push.mockReset();
@@ -79,6 +80,20 @@ describe("MapExperience", () => {
       cell: "86da96487ffffff",
       resolution: 6,
     });
+  });
+
+  it("preserves a shared month when choosing a new area", async () => {
+    window.history.replaceState(null, "", "/map?month=3");
+    render(<MapExperience />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Choose a named area" }), {
+      target: { value: "nelson" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Show fungi near this area" }));
+
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith("/?cell=86da96487ffffff&month=3"),
+    );
   });
 
   it("shows a visible error when a map point cannot be converted", () => {

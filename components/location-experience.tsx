@@ -87,7 +87,7 @@ export function LocationExperience() {
         return;
       }
       if (error.code === "denied") {
-        router.replace("/map");
+        router.replace(mapUrl(selectedMonth.current));
         return;
       }
       setState({ status: error.code });
@@ -164,7 +164,7 @@ function StateView({
           description="Choose an area on the map or refresh your location to continue."
           action="Refresh location"
           onAction={requestLocation}
-          secondaryAction={{ href: "/map", label: "Choose on map" }}
+          secondaryAction={{ href: mapUrl(state.month), label: "Choose on map" }}
         />
       );
     case "error":
@@ -183,7 +183,7 @@ function StateView({
           description="Refresh your location when you are back within the supported area."
           action="Refresh location"
           onAction={requestLocation}
-          secondaryAction={{ href: "/map", label: "Choose on map" }}
+          secondaryAction={{ href: mapUrl(state.month), label: "Choose on map" }}
         />
       );
     case "unsupported":
@@ -232,6 +232,10 @@ function subscribeToHydration(): () => void {
 
 function currentMonth(): number {
   return new Date().getMonth() + 1;
+}
+
+function mapUrl(month: number): string {
+  return `/map?month=${month}`;
 }
 
 function hasResultsShell(state: ViewState): boolean {

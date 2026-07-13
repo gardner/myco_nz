@@ -25,7 +25,7 @@ import {
   MAINLAND_PATHS,
   MAINLAND_VIEW_BOX,
 } from "@/lib/nz-map-geometry";
-import { buildSharedLocationUrl } from "@/lib/shared-location";
+import { buildSharedLocationUrl, parseSharedMonthSearch } from "@/lib/shared-location";
 
 type NamedArea = Readonly<{
   id: string;
@@ -81,9 +81,11 @@ export function MapExperience() {
   const [selecting, setSelecting] = useState(false);
   const heading = useRef<HTMLHeadingElement | null>(null);
   const operationGeneration = useRef(0);
+  const selectedMonth = useRef(currentMonth());
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   useEffect(() => {
+    selectedMonth.current = parseSharedMonthSearch(window.location.search) ?? currentMonth();
     heading.current?.focus();
     return () => {
       operationGeneration.current += 1;
@@ -102,7 +104,7 @@ export function MapExperience() {
         if (generation !== operationGeneration.current) return;
         handoffLocationCell(cell);
         markResultsForFocus();
-        router.push(buildSharedLocationUrl(cell, new Date().getMonth() + 1));
+        router.push(buildSharedLocationUrl(cell, selectedMonth.current));
       } catch {
         if (generation !== operationGeneration.current) return;
         setSelecting(false);
@@ -244,4 +246,8 @@ function area(
 
 function subscribeToHydration(): () => void {
   return () => undefined;
+}
+
+function currentMonth(): number {
+  return new Date().getMonth() + 1;
 }

@@ -9,13 +9,18 @@ export type SharedLocation = Readonly<{
 export function parseSharedLocationSearch(search: string): SharedLocation | null {
   const params = new URLSearchParams(search);
   const cells = params.getAll("cell");
-  const months = params.getAll("month");
-  if (cells.length !== 1 || months.length !== 1) return null;
+  const month = parseSharedMonthSearch(search);
+  if (cells.length !== 1 || month === null) return null;
 
   const [cell] = cells;
-  const [monthValue] = months;
-  if (!RESOLUTION_SIX_CELL.test(cell) || !CANONICAL_MONTH.test(monthValue)) return null;
-  return { cell, month: Number(monthValue) };
+  if (!RESOLUTION_SIX_CELL.test(cell)) return null;
+  return { cell, month };
+}
+
+export function parseSharedMonthSearch(search: string): number | null {
+  const months = new URLSearchParams(search).getAll("month");
+  if (months.length !== 1 || !CANONICAL_MONTH.test(months[0])) return null;
+  return Number(months[0]);
 }
 
 export function buildSharedLocationUrl(cell: string, month: number): string {

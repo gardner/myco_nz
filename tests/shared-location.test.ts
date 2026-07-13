@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSharedLocationUrl,
+  parseSharedMonthSearch,
   parseSharedLocationSearch,
 } from "@/lib/shared-location";
 
@@ -29,5 +30,11 @@ describe("shared location URLs", () => {
     expect(buildSharedLocationUrl("86da96487ffffff", 12)).toBe(
       "/?cell=86da96487ffffff&month=12",
     );
+  });
+
+  it("restores a canonical month without requiring a cell", () => {
+    expect(parseSharedMonthSearch("?month=3")).toBe(3);
+    expect(parseSharedMonthSearch("?month=03")).toBeNull();
+    expect(parseSharedMonthSearch("?month=3&month=4")).toBeNull();
   });
 });

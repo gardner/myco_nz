@@ -155,11 +155,16 @@ describe("LocationExperience request regressions", () => {
   });
 
   it.each([
-    ["invalid", "86fffffffffffff", 400],
-    ["outside New Zealand", "86be0e35fffffff", 422],
+    ["invalid", "86fffffffffffff", 400, "This shared area isn't valid"],
+    [
+      "outside New Zealand",
+      "86be0e35fffffff",
+      422,
+      "Nearby Fungi currently covers Aotearoa New Zealand",
+    ],
   ])(
     "does not persist a shared %s cell and offers map recovery",
-    async (_, cell, status) => {
+    async (_, cell, status, heading) => {
       window.history.replaceState(null, "", `/?cell=${cell}&month=7`);
       localStorage.setItem(
         STORAGE_KEY,
@@ -175,9 +180,10 @@ describe("LocationExperience request regressions", () => {
 
       render(<LocationExperience />);
 
-      expect(await screen.findByRole("link", { name: "Choose on map" })).toHaveAttribute(
+      await screen.findByRole("heading", { name: heading });
+      expect(screen.getByRole("link", { name: "Choose on map" })).toHaveAttribute(
         "href",
-        "/map",
+        "/map?month=7",
       );
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     },
