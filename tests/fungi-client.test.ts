@@ -6,6 +6,7 @@ import realSpeciesCounts from "@/tests/fixtures/inaturalist-species-counts.json"
 const cell = "86bb2955fffffff";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -74,6 +75,30 @@ describe("fetchFungi", () => {
     await expect(
       fetchFungi(cell, 7, new AbortController().signal),
     ).rejects.toEqual(new FungiClientError("rate-limited"));
+  });
+
+  it("stops waiting when iNaturalist does not respond", async () => {
+    vi.useFakeTimers();
+    let markFetchStarted: (() => void) | undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        markFetchStarted?.();
+        return new Promise<Response>(() => undefined);
+      }),
+    );
+
+    const request = fetchFungi(cell, 7, new AbortController().signal);
+    const rejection = expect(request).rejects.toEqual(
+      new FungiClientError("unavailable"),
+    );
+    await fetchStarted;
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await rejection;
   });
 
   it("maps malformed JSON to an invalid upstream response", async () => {

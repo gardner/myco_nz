@@ -218,7 +218,7 @@ export function MapExperience() {
       <p className={styles.privacy}>
         <LockKeyhole aria-hidden="true" size={17} />
         <span>
-          Your chosen point is converted on this device. We send and store only{" "}
+          Your chosen point is converted on this device. We send only{" "}
           <a
             href="https://h3geo.org/docs"
             target="_blank"
@@ -227,7 +227,7 @@ export function MapExperience() {
             an approximate area
             <span className="sr-only"> (opens H3 documentation in a new tab)</span>
           </a>
-          .
+          {" "}directly to iNaturalist and store only that area on this device.
         </span>
       </p>
       <p className={styles.provenance}>Map outline: Natural Earth, public domain.</p>

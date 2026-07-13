@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import type { FungiResponse } from "@/lib/types";
 
 export type ClientErrorCode =
@@ -28,15 +29,21 @@ export async function fetchFungi(
   if (!location.ok) throw locationError(location.reason);
 
   const [centreLat, centreLng] = location.centre;
-  const response = await fetch(
-    buildSpeciesCountsUrl({ centreLat, centreLng, requestedMonth: month }),
-    {
-      credentials: "omit",
-      headers: { Accept: "application/json" },
-      referrerPolicy: "strict-origin-when-cross-origin",
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      buildSpeciesCountsUrl({ centreLat, centreLng, requestedMonth: month }),
+      {
+        credentials: "omit",
+        headers: { Accept: "application/json" },
+        referrerPolicy: "strict-origin-when-cross-origin",
+      },
       signal,
-    },
-  );
+    );
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new FungiClientError("unavailable");
+  }
 
   if (response.status === 429) throw new FungiClientError("rate-limited");
   if (!response.ok) throw new FungiClientError("unavailable");

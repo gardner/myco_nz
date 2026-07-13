@@ -15,19 +15,6 @@
     "enabled": true,
     "cross_version_cache": true
   },
-  "ratelimits": [
-    {
-      "name": "INATURALIST_MISS_LIMITER",
-      "namespace_id": "26071301",
-      "simple": {
-        "limit": 60,
-        "period": 60
-      }
-    }
-  ],
-  "vars": {
-    "INATURALIST_USER_AGENT": "myco.nz/1.0 <gardner@bickford.nz>"
-  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

@@ -58,6 +58,7 @@ describe("LocationExperience", () => {
       target: "_blank",
       rel: "noopener noreferrer",
     });
+    expect(screen.getByText(/directly to iNaturalist/i)).toBeVisible();
   });
 
   it("converts location locally and fetches using only the approximate cell centre", async () => {

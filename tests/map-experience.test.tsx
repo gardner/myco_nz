@@ -40,6 +40,7 @@ describe("MapExperience", () => {
       "href",
       "https://h3geo.org/docs",
     );
+    expect(screen.getByText(/directly to iNaturalist/i)).toBeVisible();
 
     fireEvent.click(screen.getByTestId("mainland-land"), {
       clientX: 173.284,

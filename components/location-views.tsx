@@ -58,7 +58,7 @@ export function LocationGate({
             an approximate area
             <span className="sr-only"> (opens H3 documentation in a new tab)</span>
           </a>
-          .
+          {" "}directly to iNaturalist.
         </span>
       </p>
       <SourceLine />

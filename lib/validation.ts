@@ -1,7 +1,5 @@
 import { cellToLatLng, getResolution, isValidCell } from "h3-js";
 
-const MONTH_PATTERN = /^(?:[1-9]|1[0-2])$/;
-
 type Bounds = {
   minLatitude: number;
   maxLatitude: number;
@@ -36,10 +34,6 @@ export type CellValidation =
       ok: false;
       reason: "invalid-cell" | "wrong-resolution" | "outside-new-zealand";
     };
-
-export function parseCanonicalMonth(value: string): number | null {
-  return MONTH_PATTERN.test(value) ? Number(value) : null;
-}
 
 export function isSupportedNzLocation(latitude: number, longitude: number): boolean {
   return SUPPORTED_BOUNDS.some(

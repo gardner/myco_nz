@@ -12,17 +12,8 @@ const config = JSON.parse(
 ) as WranglerConfig;
 
 describe("Cloudflare production configuration", () => {
-  it("allows the documented iNaturalist request pace for cold cache misses", () => {
-    expect(config.ratelimits).toContainEqual({
-      name: "INATURALIST_MISS_LIMITER",
-      namespace_id: "26071301",
-      simple: { limit: 60, period: 60 },
-    });
-  });
-
-  it("identifies this application to iNaturalist", () => {
-    expect(config.vars?.INATURALIST_USER_AGENT).toBe(
-      "myco.nz/1.0 <gardner@bickford.nz>",
-    );
+  it("does not expose obsolete upstream proxy bindings", () => {
+    expect(config.ratelimits ?? []).toEqual([]);
+    expect(config.vars ?? {}).toEqual({});
   });
 });

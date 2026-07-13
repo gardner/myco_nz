@@ -2,19 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   isSupportedNzLocation,
-  parseCanonicalMonth,
   validateLocationCell,
 } from "@/lib/validation";
-
-describe("parseCanonicalMonth", () => {
-  it.each(["1", "7", "12"])("accepts %s", (value) => {
-    expect(parseCanonicalMonth(value)).toBe(Number(value));
-  });
-
-  it.each(["0", "13", "07", "7.0", "", "January"])("rejects %s", (value) => {
-    expect(parseCanonicalMonth(value)).toBeNull();
-  });
-});
 
 describe("isSupportedNzLocation", () => {
   it.each([

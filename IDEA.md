@@ -10,7 +10,7 @@ date: "13 July 2026"
 **Primary platform:** Mobile web  
 **Implementation:** vinext on Cloudflare Workers  
 
-> **Product decision:** Build a deliberately small, mobile-first view into iNaturalist data. The client converts either device location or a point chosen on a static New Zealand map into an approximate H3 cell before sending anything to the server. A single cacheable API route requests the most frequently observed fungi near the cell centre and around the current time of year. The MVP uses no database, KV namespace, R2 bucket, map SDK, user account, or iNaturalist authentication.
+> **Product decision:** Build a deliberately small, mobile-first view into iNaturalist data. The browser converts either device location or a point chosen on a static New Zealand map into an approximate H3 cell, discards the original point, and queries iNaturalist directly with the cell centre and seasonal filters. The MVP uses no application data API, database, KV namespace, R2 bucket, map SDK, user account, or iNaturalist authentication.
 
 ## Contents
 
@@ -37,10 +37,10 @@ date: "13 July 2026"
 | Card content | One image, common name, scientific name, observation count, iNaturalist NZ link |
 | Data source | iNaturalist `observations/species_counts` |
 | API authentication | None required for this public read endpoint |
-| Persistence | Cloudflare Workers Cache only |
-| Rate limiting | Cloudflare Rate Limiting binding on upstream cache misses |
+| Persistence | Browser local storage for the approximate H3 cell only |
+| Request control | A 10-second deadline, browser-side one-request-per-second pacing, request coalescing, and a 10-second cooldown after `429` |
 | Images | Use iNaturalist taxon default image URLs directly; no image resizing or R2 in MVP |
-| Future sparse-area handling | API response supports expansion metadata without requiring a frontend rewrite |
+| Future sparse-area handling | Normalized client model supports expansion metadata without requiring a frontend rewrite |
 
 # 1. Product Requirements
 
@@ -79,9 +79,9 @@ A person in New Zealand who is outdoors, planning a walk, curious about the curr
 ## 1.4 Goals
 
 1. Produce useful local results with minimal interaction.
-2. Make the initial result list fast on repeat and shared-location requests.
-3. Avoid sending exact user coordinates to the application server or iNaturalist.
-4. Minimise upstream load through coarse location keys and long-lived edge caching.
+2. Make the initial result list fast and responsive on repeat and shared-location requests.
+3. Avoid sending exact user coordinates to any network service.
+4. Minimise upstream load through one-request-per-second pacing, cancellation of obsolete requests, and a cooldown after throttling.
 5. Clearly represent the list as historical observation frequency, not a guaranteed encounter probability.
 6. Keep the implementation small enough to maintain while leaving a clean path to wider-area results and precomputed data later.
 
@@ -128,7 +128,7 @@ The frontend must not assume that every result came only from one local cell. Co
 2. Tapping the button requests browser geolocation with high accuracy disabled.
 3. The browser converts latitude and longitude into an H3 resolution 6 cell.
 4. Exact coordinates are discarded.
-5. The client requests the canonical cell-and-month API URL.
+5. The client validates the H3 cell and month, converts the cell to its centre, and requests the fixed iNaturalist species-count query directly.
 6. Loading skeletons appear while data is fetched.
 7. The ranked result list appears.
 8. The browser URL is replaced with the approximate H3 cell and selected month for sharing.
@@ -158,7 +158,7 @@ Content:
 - Heading: **Fungi likely near you**.
 - Supporting text: **See the fungi most often recorded around your approximate area at this time of year.**
 - Primary button: **Show fungi near me**.
-- Privacy note: **Your exact location stays on this device. We send only an approximate area.**
+- Privacy note: **Your exact location stays on this device. We send only an approximate area directly to iNaturalist.**
 - Small attribution: **Powered by iNaturalist observations.**
 
 ### B. Loading state
@@ -190,10 +190,10 @@ Footer:
 
 ### D. Location denied or unavailable
 
-- Explain that location is required for the MVP.
+- Explain that automatic location is unavailable.
 - Repeat that exact coordinates are converted to an approximate cell locally.
-- Provide **Try again**.
-- Do not add manual geocoding in the first release.
+- Provide **Try again** and a link to the static `/map` fallback.
+- Allow the user to choose an approximate area on the New Zealand outline without a geocoder or tile service.
 
 ### E. No-result state
 
@@ -204,9 +204,9 @@ Footer:
 
 ### F. Upstream failure state
 
-- Serve stale cached data where available.
-- If no cached data exists, show a short failure message and **Try again**.
-- Never cache error responses.
+- Show a short failure message and **Try again**.
+- Keep the selected cell and month ready for retry.
+- After an iNaturalist `429`, wait at least 10 seconds before starting another request.
 
 ## 1.9 Result card specification
 
@@ -255,28 +255,29 @@ It does **not** mean:
 
 ### Result count
 
-Return the top 20 results. Request up to 30 upstream if useful for resilience, but do not reorder or silently omit species solely because a photo or common name is absent.
+Request and return the top 20 results. Do not reorder or silently omit species solely because a photo or common name is absent.
 
 ## 1.11 Functional requirements
 
 | ID | Requirement |
 |---|---|
 | FR-001 | The first screen must explain the product and request location with one primary action. |
-| FR-002 | Exact latitude and longitude must be converted to H3 resolution 6 in the browser and not sent to the application server. |
-| FR-003 | The client must request data using a canonical path containing API version, locale, H3 resolution, cell, and month. |
-| FR-004 | The server must validate the H3 cell, resolution, month, and supported New Zealand coverage before contacting iNaturalist. |
-| FR-005 | The server must call the iNaturalist species-count endpoint only after cache and rate-limit controls permit it. |
-| FR-006 | The server must return a normalised response rather than proxying the complete upstream payload. |
+| FR-002 | Exact latitude and longitude must be converted to H3 resolution 6 in the browser and discarded before any data request. |
+| FR-003 | The client must restore and share results using a URL containing the H3 cell and selected month. |
+| FR-004 | The browser must validate the H3 cell, resolution, month, and supported New Zealand coverage before contacting iNaturalist. |
+| FR-005 | The browser must call the fixed iNaturalist species-count endpoint with only the H3 cell centre and fixed query policy. |
+| FR-006 | The browser must normalise and validate the upstream payload before rendering it. |
 | FR-007 | The result list must show one image, common name, scientific name, matching observation count, and external observation link. |
 | FR-008 | The observation link must use the approximate cell centre and never the user's original coordinates. |
 | FR-009 | The application must preserve image attribution and licence metadata returned by iNaturalist. |
-| FR-010 | Successful API responses must be publicly cacheable; errors must use `Cache-Control: no-store`. |
+| FR-010 | The client must omit credentials and must not add a custom `User-Agent` or `X-Via` header to iNaturalist requests. |
 | FR-011 | The application must work without an iNaturalist API key, user login, application login, or OAuth flow. |
 | FR-012 | The response must include coverage metadata that can represent later nearby-cell or wider-radius expansion. |
 | FR-013 | The application must provide a useful denied-location, no-result, and upstream-error state. |
 | FR-014 | The `/map` fallback must use route-isolated static SVG geometry with no map SDK, tile service, or geocoder. |
 | FR-015 | Results must provide a 12-box month selector immediately above the ranked list and visibly distinguish the selected month. |
 | FR-016 | The browser URL must contain the canonical approximate H3 cell and selected month so the result view can be shared and restored without geolocation. |
+| FR-017 | Data requests must have a 10-second deadline, be spaced at least one second apart, cancel obsolete work, and start a cooldown of at least 10 seconds after a `429`. |
 
 ## 1.12 Responsive design requirements
 
@@ -314,9 +315,10 @@ Return the top 20 results. Request up to 30 upstream if useful for resilience, b
 - Discard exact coordinates immediately after conversion.
 - Store only the H3 cell, resolution, and last-updated timestamp in local storage.
 - Do not create user profiles or associate cells with an account.
-- Treat the H3 cell as approximate location information in logs and analytics.
+- Send only the H3 cell centre and fixed seasonal filters to iNaturalist, never the original device or map point.
+- Recognise that a direct request exposes normal web metadata to iNaturalist, including the visitor's public IP address and browser-provided origin, referrer, and user agent.
+- Use `credentials: "omit"` and do not add custom identification headers.
 - Do not send the cell to third-party product analytics unless explicitly reviewed.
-- Keep server logs and metrics focused on cache performance, result count, latency, errors, and coarse aggregate usage.
 
 ## 1.15 Success metrics
 
@@ -329,18 +331,16 @@ Return the top 20 results. Request up to 30 upstream if useful for resilience, b
 
 ### Performance and infrastructure metrics
 
-- Cloudflare cache hit ratio for the fungi API route.
-- iNaturalist upstream requests per day.
-- Upstream response latency and 429/5xx rate.
-- Cached API TTFB at p50 and p75 from New Zealand.
+- iNaturalist request latency and 429/5xx rate observed by the client.
+- Requests started per result session.
+- Cancelled obsolete requests during month selection.
 - Client time from location acquisition to first rendered result.
 
 ### Initial targets
 
-- At least 90% cache hit ratio after the cache has warmed in active areas.
-- Fewer than 1,000 upstream iNaturalist requests per day during the initial launch phase.
-- Cached API TTFB below 250 ms at p75 in New Zealand.
-- First results rendered within 2 seconds of location acquisition on a cache hit under a typical 4G connection.
+- No more than one iNaturalist request starts per second in one browser session.
+- A `429` prevents another request from starting for at least 10 seconds.
+- First results render within 2 seconds of location acquisition when iNaturalist responds promptly on a typical 4G connection.
 
 ## 1.16 MVP acceptance criteria
 
@@ -350,41 +350,39 @@ The MVP is ready to release when:
 2. Network inspection confirms that exact latitude and longitude never leave the browser.
 3. The response contains no more than 20 species and each card includes all required fields or defined fallbacks.
 4. Every taxon link opens a correctly filtered iNaturalist NZ observations page.
-5. Two identical production requests show the expected Cloudflare cache behaviour, including a cache hit after warm-up.
-6. A cache hit does not make an upstream iNaturalist request.
-7. Upstream errors are not cached and stale successful data is served when available.
+5. Network inspection confirms that the browser requests `api.inaturalist.org` with only the H3 centre and fixed filters, omits credentials, and adds no custom identification headers.
+6. Rapid month changes cancel obsolete work and do not start requests more often than once per second.
+7. A stalled request or iNaturalist `429` produces a tested failure state; `429` also starts a cooldown of at least 10 seconds.
 8. Location denial, missing photos, missing common names, no results, and upstream failure have tested interfaces.
 9. Automated unit, integration, accessibility, and mobile end-to-end tests pass.
-10. There is no database, KV, R2, map library, or iNaturalist authentication dependency.
+10. There is no application data route, database, KV, R2, map library, or iNaturalist authentication dependency.
 11. A shared cell-and-month URL restores the same result query, and all 12 months remain usable at the mobile baseline.
 
 # 2. Implementation Specification
 
 ## 2.1 Architecture overview
 
-vinext reimplements substantial Next.js App Router functionality on Vite, supports route handlers, and has a first-party Cloudflare Workers deployment path. It is currently marked experimental, so the project should pin versions and include production smoke tests.[^vinext]
+vinext reimplements substantial Next.js App Router functionality on Vite and has a first-party Cloudflare Workers deployment path. It is currently marked experimental, so the project should pin versions and retain compatibility coverage in CI.[^vinext]
 
 ```text
 Browser
   |-- renders static/client app shell
-  |-- requests browser geolocation
-  |-- lat/lng -> H3 resolution 6
-  |-- discards exact coordinates
+  |-- device location or map point -> H3 resolution 6
+  |-- discards the original point
+  |-- validates the shared H3 cell and selected month
+  |-- H3 cell -> approximate centre coordinates
+  |-- paces and coalesces requests
   |
-  `-- GET /api/fungi/v1/en-NZ/r6/{cell}/{month}
-          |
-          | Cloudflare Workers Cache HIT
-          |   `-- return normalised JSON; Worker code is not invoked
-          |
-          `-- Cache MISS / refresh
-                |-- validate canonical request
-                |-- Cloudflare Rate Limiting binding
-                |-- call iNaturalist species_counts
-                |-- normalise response and build links
-                `-- return long-lived cacheable JSON
+  `-- GET https://api.inaturalist.org/v1/observations/species_counts
+          |-- H3 centre, 30 km radius, seasonal and taxonomic filters
+          `-- raw public response
+                |
+                `-- browser normalises and validates fields and URL origins
 ```
 
-Cloudflare Workers Cache supports cached responses ahead of Worker execution, edge-only cache directives, stale-while-revalidate, stale-if-error, and optional cross-version cache reuse.[^cf-cache]
+The Cloudflare Worker serves the application shell and static assets. It is not an iNaturalist data proxy and has no public fungi API route, cache binding, rate-limit binding, database, KV namespace, or R2 bucket.
+
+Because the species-count request is made directly, iNaturalist receives the visitor's public IP address and normal browser metadata such as `Origin`, `Referer`, and the browser's own user agent. Exact device coordinates and exact map points never appear in that request.
 
 ## 2.2 Technology choices
 
@@ -399,7 +397,7 @@ Cloudflare Workers Cache supports cached responses ahead of Worker execution, ed
 | Images | Native `<img>` with fixed dimensions and lazy loading |
 | API validation | Small explicit validators; a schema library is optional, not required |
 | Tests | Vitest, Testing Library, Playwright, and axe integration |
-| Persistence | Workers Cache only |
+| Persistence | Browser local storage for the approximate H3 cell only |
 
 Avoid adding a heavyweight component library, state-management library, geocoder, map dependency, or image optimiser for the MVP.
 
@@ -410,28 +408,23 @@ app/
   layout.tsx
   page.tsx
   globals.css
-  api/
-    fungi/
-      v1/
-        en-NZ/
-          r6/
-            [cell]/
-              [month]/
-                route.ts
+  map/
+    page.tsx
+    map-page.module.css
 components/
-  location-gate.tsx
-  results-header.tsx
+  location-experience.tsx
+  location-views.tsx
+  map-experience.tsx
+  month-selector.tsx
   fungi-list.tsx
-  fungi-card.tsx
-  result-skeleton.tsx
-  status-panel.tsx
 lib/
   client-location.ts
-  h3.ts
-  months.ts
-  fungi-api.ts
+  fungi-client.ts
   inaturalist.ts
-  inaturalist-links.ts
+  months.ts
+  nz-map-geometry.ts
+  request-pacer.ts
+  shared-location.ts
   types.ts
   validation.ts
 public/
@@ -498,37 +491,30 @@ nearby-fungi:location:v1
 
 Treat a stored cell as fresh for 30 days, but always expose **Refresh location**.
 
-### Server conversion
+### Cell-centre conversion
 
-The route handler converts the H3 cell to its centre latitude and longitude. Those centre coordinates are safe to use for both the upstream query and external iNaturalist link because they represent the shared cell, not the user's point.
+The browser converts the validated H3 cell to its centre latitude and longitude. Those centre coordinates are used for both the direct iNaturalist query and external iNaturalist link because they represent the shared cell, not the user's point.
 
-## 2.5 Canonical API route
+## 2.5 Browser query and validation
 
-```text
-GET /api/fungi/v1/en-NZ/r6/{cell}/{month}
-```
-
-Example:
+The shareable application URL is the canonical input:
 
 ```text
-GET /api/fungi/v1/en-NZ/r6/86bb6db57ffffff/7
+/?cell=86bb6db57ffffff&month=7
 ```
 
-The cache key is the canonical URL. Do not accept equivalent free-form query parameters for latitude, longitude, radius, quality grade, result count, or taxon.
-
-### Validation
-
-Reject with `400` and `Cache-Control: no-store` when:
+Before starting a network request, the browser rejects the selection when:
 
 - The cell is not a valid H3 cell.
 - The cell is not resolution 6.
 - The month is not an integer from 1 to 12.
 - The cell centre is outside the supported New Zealand coverage boundary.
-- The path contains an unsupported locale or version.
 
 The supported boundary can begin as compact code-owned polygons or bounding regions. A generated allowlist of valid New Zealand resolution 6 cells is a later hardening option, not an MVP prerequisite.
 
 ## 2.6 Response contract
+
+The browser converts the raw iNaturalist response into this internal model before it reaches the UI:
 
 ```ts
 export type FungiResponse = {
@@ -610,21 +596,25 @@ const params = new URLSearchParams({
 });
 ```
 
+The browser sends the request with `credentials: "omit"`, an `Accept: application/json` header, and `referrerPolicy: "strict-origin-when-cross-origin"`. This is a simple CORS request to a fixed origin; the Content Security Policy allows `connect-src https://api.inaturalist.org`.
+
 Do not use `photos=true` for the ranking query. That would count only matching observations containing photographs and unnecessarily change the evidence measure. The taxon object can still include its default taxon photo.
 
 ### Authentication
 
 No API key or OAuth flow is required. The public `GET /observations/species_counts` operation has no authentication requirement in the API definition; protected endpoints explicitly declare token security.[^inat-api]
 
-### Upstream identification
+### Request identity and pacing
 
-Send a custom User-Agent from the Worker:
+Do not set `User-Agent` or `X-Via`; browser JavaScript cannot reliably control the user agent, and the direct request already carries the browser's native user agent plus normal `Origin` and `Referer` metadata. Do not attach cookies or other credentials.
 
-```text
-NearbyFungi/1.0 (+https://example.nz/about; contact@example.nz)
-```
+iNaturalist asks application developers to keep requests around one per second, avoid bulk extraction through the API, and handle `429` responses.[^inat-practices] A browser-local coordinator therefore:
 
-iNaturalist asks application developers to keep requests around one per second and roughly 10,000 per day, avoid bulk extraction through the API, handle 429 responses, and identify their application with a custom User-Agent where possible.[^inat-practices]
+- Starts requests no more often than once per second.
+- Cancels an obsolete in-flight request when the selected cell or month changes.
+- Coalesces rapid month changes so only the latest selection proceeds.
+- Stops waiting after 10 seconds so a stalled connection reaches the retry state.
+- Defers subsequent work for at least 10 seconds after a `429`.
 
 ## 2.8 Seasonal month calculation
 
@@ -638,7 +628,7 @@ export function getSeasonalMonths(month: number): [number, number, number] {
 
 Sort or preserve the semantic order consistently. For display, format the month names chronologically across the year boundary; for example, December-February.
 
-The cache key uses the requested month, not the explicit month list. A request for month 1 deterministically implies months 12, 1, and 2 under API version 1.
+The shareable URL uses the requested month, not the explicit month list. A selection of month 1 deterministically implies months 12, 1, and 2.
 
 ## 2.9 Response normalisation
 
@@ -651,13 +641,14 @@ For every upstream result:
 5. Prefer `default_photo.square_url` for the card; fall back to `medium_url`, then `url`.
 6. Preserve `attribution` and `license_code`.
 7. Build the filtered iNaturalist NZ observations URL.
-8. Return only fields needed by the frontend.
+8. Retain only fields needed by the frontend.
+9. Validate the normalized object and allow external and image URLs only from the expected iNaturalist origins.
 
 The API definition exposes species count results containing `count` and a taxon record; taxon photos can include square and medium URLs, attribution, and licence code.[^inat-api]
 
 ## 2.10 External iNaturalist NZ links
 
-Build links server-side from the cell centre and fixed query policy:
+Build links in the browser from the cell centre and fixed query policy:
 
 ```ts
 export function buildObservationsUrl(input: {
@@ -690,110 +681,7 @@ Open with:
 
 The user should land on real matching observations rather than a generic taxon profile.
 
-## 2.11 Cloudflare cache policy
-
-### Cache configuration
-
-```jsonc
-{
-  "cache": {
-    "enabled": true,
-    "cross_version_cache": true
-  }
-}
-```
-
-`cross_version_cache` prevents routine deployments from discarding warm entries, but it also means a deployment does not automatically invalidate cached responses. Keep the API path versioned and change `/v1/` when response semantics change. Cloudflare currently documents a Wrangler 4.107.0 minimum for this option.[^cf-cache]
-
-### Successful response headers
-
-```http
-Cache-Control: public, max-age=3600
-Cloudflare-CDN-Cache-Control: public, max-age=1209600, stale-while-revalidate=5184000, stale-if-error=7776000
-Content-Type: application/json; charset=utf-8
-```
-
-Policy:
-
-- Browser freshness: 1 hour.
-- Cloudflare freshness: 14 days.
-- Stale while background refreshing: 60 days.
-- Stale on Worker or upstream failure: 90 days.
-
-Cloudflare supports separate browser and edge directives through `Cloudflare-CDN-Cache-Control`; the Cloudflare-specific header has precedence and is stripped before reaching the browser.[^cf-cache]
-
-Do not use `s-maxage`, `must-revalidate`, or `proxy-revalidate` with this policy because Cloudflare documents that they disable stale serving behaviour.[^cf-cache]
-
-### Error response headers
-
-```http
-Cache-Control: no-store
-Content-Type: application/json; charset=utf-8
-```
-
-Convert an upstream 429 or 5xx into an application 503 so an expired successful response can be used through `stale-if-error`. A true cold miss cannot use stale data.
-
-### Cache verification
-
-Production smoke test:
-
-```bash
-curl -I "https://app.example.nz/api/fungi/v1/en-NZ/r6/{cell}/7"
-curl -I "https://app.example.nz/api/fungi/v1/en-NZ/r6/{cell}/7"
-```
-
-Confirm the second request becomes a cache hit after warm-up and does not emit a corresponding upstream-call log.
-
-## 2.12 Rate limiting
-
-Use Cloudflare's Rate Limiting binding, not Workers KV. KV is optimised for read-heavy caching and is eventually consistent; writes can take 60 seconds or longer to appear in other locations, making it unsuitable for an exact counter.[^cf-kv]
-
-Example binding:
-
-```jsonc
-{
-  "ratelimits": [
-    {
-      "name": "INATURALIST_MISS_LIMITER",
-      "namespace_id": "1001",
-      "simple": {
-        "limit": 60,
-        "period": 60
-      }
-    }
-  ]
-}
-```
-
-The 60-request ceiling follows iNaturalist's requested pace of about one API call per second; successful responses are cached so normal repeat traffic does not consume that allowance.[^inat-practices]
-
-Call the limiter immediately before the upstream fetch:
-
-```ts
-const { success } = await env.INATURALIST_MISS_LIMITER.limit({
-  key: "species-counts-v1",
-});
-
-if (!success) {
-  return Response.json(
-    { error: "Data source temporarily busy" },
-    { status: 503, headers: { "Cache-Control": "no-store" } },
-  );
-}
-```
-
-Cloudflare's binding is fast and route-specific, but its counters are local to each Cloudflare location and intentionally permissive rather than an exact global accounting mechanism.[^cf-rate]
-
-This is adequate for the MVP because:
-
-- Cache hits do not reach the upstream-call branch.
-- The route accepts only canonical New Zealand cell/month combinations.
-- The application is expected to have geographically concentrated traffic.
-- Upstream 429s are monitored and can trigger stricter coordination later.
-
-Do not describe the binding as a guaranteed global one-request-per-second limiter.
-
-## 2.13 Images and attribution
+## 2.11 Images and attribution
 
 ### MVP strategy
 
@@ -827,7 +715,7 @@ Example:
 
 Add an image proxy or R2 only if measurements show origin reliability, repeated image transfer, or licensing-controlled curation warrants it.
 
-## 2.14 Client component boundaries
+## 2.12 Client component boundaries
 
 `app/page.tsx` can render static product copy and a client component for location and data state.
 
@@ -844,7 +732,7 @@ idle
   -> error
 ```
 
-Avoid storing duplicate server state. One reducer or a small discriminated union is sufficient.
+Avoid storing duplicate remote result state. One reducer or a small discriminated union is sufficient.
 
 ```ts
 type ViewState =
@@ -860,7 +748,7 @@ type ViewState =
 
 Use `AbortController` so refresh actions cancel an obsolete fetch.
 
-## 2.15 UI implementation notes
+## 2.13 UI implementation notes
 
 ### Card layout
 
@@ -890,48 +778,24 @@ Desktop:
 - Maintain one column and approximately 760 px maximum width.
 - Use generous page margins rather than a dense multi-column dashboard.
 
-## 2.16 Error handling
+## 2.14 Error handling
 
-| Condition | Server behaviour | Client behaviour |
-|---|---|---|
-| Invalid path | 400, no-store | Generic invalid request; normally unreachable through UI |
-| Outside supported NZ area | 400 or 422, no-store | Explain current NZ-only coverage |
-| Rate limit reached | 503, no-store | Short busy message and retry |
-| iNaturalist 429 | 503, no-store | Serve stale if available; otherwise retry message |
-| iNaturalist 5xx/timeout | 503, no-store | Serve stale if available; otherwise retry message |
-| Malformed upstream JSON | 502, no-store | Retry message; log structured error |
-| Empty result list | 200 cacheable | No-result state |
-| Missing image | 200 cacheable | Placeholder |
-| Missing common name | 200 cacheable | Scientific name plus fallback common-name copy |
+| Condition | Client behaviour |
+|---|---|
+| Invalid shared cell or month | Reject before network access and offer location refresh or `/map` |
+| Outside supported NZ area | Reject before network access and explain current NZ-only coverage |
+| iNaturalist 429 | Show the retry message and defer another request for at least 10 seconds |
+| iNaturalist 5xx or network failure | Show the retry message while retaining the selected cell and month |
+| Malformed or unsafe upstream response | Reject the response and show the retry message |
+| Empty result list | Show the no-result state |
+| Missing image | Show the local placeholder |
+| Missing common name | Show the scientific name plus fallback common-name copy |
 
-Set an upstream timeout of roughly 8-10 seconds using `AbortSignal.timeout()` or an `AbortController`.
+Use `AbortController` to cancel an obsolete request when location or month changes. An abort is not presented as an error when a newer request owns the UI state.
 
-## 2.17 Observability
+## 2.15 Observability
 
-Emit structured logs only on Worker execution, especially:
-
-```json
-{
-  "event": "inat_species_counts",
-  "apiVersion": 1,
-  "month": 7,
-  "resultCount": 20,
-  "upstreamStatus": 200,
-  "upstreamMs": 412,
-  "expansionLevel": 0
-}
-```
-
-Also log:
-
-- Validation failures by reason.
-- Rate-limiter rejection.
-- Upstream timeout.
-- iNaturalist 429 and 5xx.
-- Normalisation failures.
-- Empty results.
-
-Do not log raw browser coordinates because the Worker never receives them. Avoid attaching user-identifying values to cell-level events.
+The Cloudflare Worker serves the application and therefore cannot log direct iNaturalist response status, latency, or result count. Do not add browser telemetry merely to recreate server-side upstream logs.
 
 Client analytics, if added, should record only:
 
@@ -943,20 +807,18 @@ Client analytics, if added, should record only:
 
 Do not include the exact H3 cell in third-party analytics by default.
 
-## 2.18 Security and abuse controls
+## 2.16 Security and abuse controls
 
-- Accept only `GET` and `HEAD` for the public data route.
-- Validate all path segments.
-- Fix query policy server-side.
-- Do not expose a generic iNaturalist proxy.
-- Limit supported cells to New Zealand coverage.
-- Use a fixed upstream host and path; do not accept a user-supplied URL.
-- Return a strict JSON content type.
-- Set a conservative Content Security Policy for the app, explicitly permitting the known iNaturalist image hosts required by returned URLs.
+- Validate the H3 cell, resolution, month, and New Zealand coverage before network access.
+- Keep the iNaturalist origin, path, radius, taxon, rank, quality, locale, and result limit fixed in code; do not accept a user-supplied upstream URL.
+- Omit credentials and add no authentication or custom identification headers.
+- Treat the upstream response as untrusted structured data and reject malformed required fields.
+- Allow observation, taxon-photo, and image URLs only from expected HTTPS iNaturalist origins.
+- Set a conservative Content Security Policy that permits connections to `api.inaturalist.org` and the known image hosts required by validated results.
 - Use `rel="noopener noreferrer"` for outbound links.
 - Keep dependencies pinned and run vinext compatibility checks during upgrades because vinext remains experimental.[^vinext]
 
-## 2.19 Testing strategy
+## 2.17 Testing strategy
 
 ### Unit tests
 
@@ -967,20 +829,23 @@ Do not include the exact H3 cell in third-party analytics by default.
 - Response normalisation.
 - Missing common name and image fallbacks.
 - External observations URL construction.
-- Cache headers for success and errors.
+- Image and external URL origin allowlists.
 - Coverage metadata defaults.
+- One-request-per-second pacing, abortable waits, and post-`429` cooldown.
 
-### Route integration tests
+### Client integration tests
 
 Mock the upstream response and verify:
 
-- Correct URL and headers.
-- No authentication token is added.
-- Custom User-Agent is present.
+- The browser calls the fixed iNaturalist origin with the H3 centre and seasonal filters.
+- The original mocked geolocation or map point is absent from the request URL.
+- `credentials: "omit"` and the expected referrer policy are used.
+- No authentication token, custom `User-Agent`, or `X-Via` header is added.
 - Upstream ordering is preserved.
-- 429 and 5xx become 503.
-- Invalid paths never call upstream.
-- Rate-limit rejection never calls upstream.
+- A `429` is distinguished so the coordinator can start its cooldown.
+- A request that does not settle reaches the retry state after the deadline.
+- Invalid or unsupported shared selections never call upstream.
+- Unsafe image and link origins are rejected.
 
 ### End-to-end tests
 
@@ -996,16 +861,11 @@ Use mocked browser geolocation:
 - External link parameters.
 - Keyboard navigation.
 - Automated axe scan.
+- Direct cross-origin iNaturalist request interception.
+- Exact mocked latitude/longitude absent from all request URLs.
+- Rapid month selection coalescing and focus retention.
 
-### Production smoke tests
-
-- Deploy via vinext Cloudflare integration.
-- Fetch the same canonical route twice and inspect `Cf-Cache-Status`.
-- Confirm a cached request produces no upstream log.
-- Confirm exact mocked latitude/longitude does not appear in request URLs, application logs, or analytics payloads.
-- Confirm stale data is served during a controlled upstream 503 test where feasible.
-
-## 2.20 Deployment and configuration
+## 2.18 Deployment and configuration
 
 Create or initialise the project with pnpm:
 
@@ -1025,13 +885,6 @@ pnpm exec @vinext/cloudflare deploy
 
 The initialisation flow creates or updates the Vite, Wrangler, and deployment configuration needed for Cloudflare Workers.[^vinext]
 
-Suggested non-secret variables:
-
-```text
-INATURALIST_USER_AGENT
-APP_BASE_URL
-```
-
 There should be no iNaturalist key or token in project configuration.
 
 CI should run:
@@ -1046,7 +899,7 @@ pnpm exec vinext build
 
 Pin vinext, its Cloudflare adapter, Wrangler, and H3 versions. Review upgrades intentionally.
 
-## 2.21 Performance budgets
+## 2.19 Performance budgets
 
 | Budget | Target |
 |---|---:|
@@ -1054,9 +907,8 @@ Pin vinext, its Cloudflare adapter, Wrangler, and H3 versions. Review upgrades i
 | Above-the-fold images | No more than 3 eager thumbnails |
 | Thumbnail display size | 88-128 px |
 | Layout shift | CLS below 0.1 |
-| Cached API TTFB p75 in NZ | Below 250 ms |
+| iNaturalist API response time p75 in NZ | Below 2 seconds where the upstream permits |
 | API JSON payload | Preferably below 40 KB compressed |
-| Upstream timeout | 8-10 seconds |
 | LCP p75 on mobile | Below 2.5 seconds after location is available |
 
 Use explicit image dimensions, a static shell, no map SDK, and no runtime UI framework beyond the existing React/vinext stack.
@@ -1069,7 +921,7 @@ The MVP does not automatically widen the search. The response contract and UI co
 
 ### Candidate trigger
 
-A future backend policy can expand when either:
+A future query policy can expand when either:
 
 - Fewer than 12 species are returned; or
 - The sum of displayed observation counts falls below a configurable evidence threshold.
@@ -1091,7 +943,7 @@ Advantages:
 - One species-count request per level.
 - iNaturalist handles deduplication and aggregation.
 - Existing ranking semantics remain clear.
-- The cache key can remain the original local cell and month because expansion policy is deterministic inside the API version.
+- The shareable selection can remain the original local cell and month because expansion policy is deterministic.
 
 Response example:
 
@@ -1120,31 +972,7 @@ Requirements:
 
 Because live radius queries overlap, do not merge several live radius responses by simply adding counts. Neighbour-cell aggregation is most appropriate once counts are computed from non-overlapping cell assignments in a local dataset.
 
-## 3.2 Read-through KV cache
-
-Add KV only if Workers Cache eviction or resilience becomes a measured issue.
-
-Read path:
-
-```text
-Workers Cache -> KV result blob -> iNaturalist
-```
-
-KV would store the normalised answer for a cell and month, not rate-limit counters and not raw observations.
-
-Potential benefits:
-
-- Persistent last-known-good result.
-- Easier prewarming of popular cells.
-- Cached answers survive edge eviction.
-
-Costs:
-
-- Additional storage operations and invalidation logic.
-- Eventual consistency.
-- Another layer to observe and test.
-
-## 3.3 Precomputed New Zealand aggregate
+## 3.2 Precomputed New Zealand aggregate
 
 If traffic or product features justify removing live dependency, build a scheduled data pipeline rather than a request-time raw mirror:
 
@@ -1157,30 +985,28 @@ Bulk occurrence dataset
   -> publish immutable/versioned objects to R2
 ```
 
-The runtime route then reads one object per cell/month. This supports correct neighbouring-cell aggregation because each observation belongs to one base cell.
+If such a system is adopted later, the application can read one immutable object per cell and month instead of calling the live API. This supports correct neighbouring-cell aggregation because each observation belongs to one base cell.
 
-Do not build this before the launch metrics show meaningful upstream volume, cache misses, or product demand for custom spatial analysis.
+Do not build this before measured demand or persistent upstream availability problems justify adding storage and a data pipeline.
 
-## 3.4 Image caching or R2
+## 3.3 Image caching or R2
 
 Potential later stages:
 
-1. Continue direct source images with browser and Cloudflare caching.
+1. Continue direct source images with normal browser and origin HTTP caching.
 2. Add a cacheable read-through image route if source reliability becomes an issue.
 3. Curate and copy licensed images to R2 only when stable ownership, prewarming, or multiple-photo detail views justify it.
 
 Any copied image must retain licence and attribution metadata and comply with the source licence.
 
-## 3.5 Other deferred features
+## 3.4 Other deferred features
 
 - Manual town or postcode selection without a map.
 - Broader taxonomic groups.
-- Month selector or seasonal browsing.
 - Species detail drawer.
 - Two or three observation photos.
 - Weather-aware ranking.
 - Recent observation weighting.
-- Map view.
 - Saved favourites.
 - Observation submission.
 
@@ -1191,22 +1017,22 @@ Any copied image must retain licence and attribution metadata and comply with th
 Deliverables:
 
 - Minimal vinext app deployed to Cloudflare.
-- One hard-coded cacheable JSON route.
-- Confirm Workers Cache behaviour and `Cf-Cache-Status`.
-- Confirm route-handler access to the Rate Limiting binding.
-- Confirm direct iNaturalist species-count request and custom User-Agent.
+- Confirm browser CORS access to the public iNaturalist species-count endpoint.
+- Confirm exact coordinates can be discarded before the direct request.
+- Confirm the response contains sufficient taxon photo and attribution metadata.
 - Record any vinext compatibility gaps.
 
-Exit criterion: two identical production requests demonstrate a warm cache hit and the second request does not execute upstream-fetch code.
+Exit criterion: a browser request using only an H3 centre and fixed filters renders normalized real iNaturalist fixture data.
 
 ## Phase 1: Functional MVP
 
 Deliverables:
 
 - Location gate and local H3 conversion.
-- Versioned canonical API route.
-- Upstream request and normalised contract.
+- Shareable cell-and-month URL.
+- Direct iNaturalist request and client-side normalized contract.
 - Mobile result cards.
+- Static `/map` fallback and month selector.
 - External iNaturalist NZ links.
 - Loading, denied, empty, and error states.
 - Local cell persistence and refresh location.
@@ -1216,27 +1042,23 @@ Deliverables:
 
 Deliverables:
 
-- Cache and rate-limit production configuration.
+- One-request-per-second pacing, obsolete-request cancellation, and post-`429` cooldown.
 - Accessibility review and axe tests.
-- Structured logs and dashboards.
-- Production smoke tests.
-- CSP and supported-area validation.
+- CSP, response-origin allowlists, and supported-area validation.
 - Performance profiling on a mid-range mobile device.
-- Cross-version cache enabled after API versioning tests pass.
+- Chromium and WebKit privacy-focused end-to-end tests.
 
 ## Phase 3: Launch and measure
 
-For the first 4-6 weeks, review:
+For the first 4-6 weeks, review available aggregate and privacy-safe signals:
 
-- Cache hit ratio.
-- Distinct active cells.
-- Upstream calls per day.
+- Application load and rendering performance.
 - Empty-result areas.
 - Result counts and link click-through.
 - iNaturalist 429 or availability failures.
 - Image failures.
 
-Do not add KV, R2, or a local occurrence dataset until these measurements identify a real constraint.
+Do not add a database, KV, R2, a proxy route, or a local occurrence dataset until measurements identify a real constraint and the privacy impact has been reviewed.
 
 # 5. Open Decisions
 
@@ -1252,79 +1074,18 @@ The following defaults are recommended but should be confirmed during implementa
 | Stored-cell lifetime | 30 days |
 | First-visit behaviour | Explicit Show fungi near me button |
 | Desktop layout | Centred single-column list |
-| Analytics | Cloudflare operational metrics first; minimal product events only |
+| Analytics | None by default; add only privacy-reviewed aggregate events |
 | Sparse-area fallback | Defer, but design response contract now |
 
-# Appendix A: Route-handler outline
-
-```ts
-import { env } from "cloudflare:workers";
-import { cellToLatLng, getResolution, isValidCell } from "h3-js";
-
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ cell: string; month: string }> },
-): Promise<Response> {
-  const { cell, month: rawMonth } = await context.params;
-  const month = Number(rawMonth);
-
-  if (!isValidCell(cell) || getResolution(cell) !== 6 || !isValidMonth(month)) {
-    return noStoreJson({ error: "Invalid request" }, 400);
-  }
-
-  const [lat, lng] = cellToLatLng(cell);
-  if (!isSupportedNzLocation(lat, lng)) {
-    return noStoreJson({ error: "Outside supported area" }, 422);
-  }
-
-  const { success } = await env.INATURALIST_MISS_LIMITER.limit({
-    key: "species-counts-v1",
-  });
-  if (!success) {
-    return noStoreJson({ error: "Data source temporarily busy" }, 503);
-  }
-
-  const months = getSeasonalMonths(month);
-  const upstream = await fetch(buildInatUrl({ lat, lng, months }), {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": env.INATURALIST_USER_AGENT,
-    },
-    signal: AbortSignal.timeout(9_000),
-  });
-
-  if (!upstream.ok) {
-    return noStoreJson({ error: "Data source temporarily unavailable" }, 503);
-  }
-
-  const payload = await upstream.json();
-  const body = normaliseSpeciesCounts({ payload, cell, month, months, lat, lng });
-
-  return Response.json(body, {
-    headers: {
-      "Cache-Control": "public, max-age=3600",
-      "Cloudflare-CDN-Cache-Control":
-        "public, max-age=1209600, " +
-        "stale-while-revalidate=5184000, " +
-        "stale-if-error=7776000",
-    },
-  });
-}
-```
-
-# Appendix B: Key engineering decisions
+# Appendix A: Key engineering decisions
 
 ## Why not a database now?
 
-The only runtime question is a deterministic cell/month lookup whose answer is reproducible from iNaturalist. Long-lived HTTP caching removes most repeated upstream work without ingestion or database operations.
-
-## Why not KV now?
-
-Workers Cache already handles the hot path before Worker execution. KV adds value only as a persistent second-level cache. It should not be used for strict rate-limit counters because of eventual consistency.[^cf-kv]
+The runtime question is a small public iNaturalist lookup that the browser can make directly. A database would add ingestion, retention, privacy, and operational concerns without improving the MVP answer.
 
 ## Why H3 resolution 6?
 
-It removes point-level precision, yields substantial cache sharing, and is still local enough for a 30 km recommendation query. The API version can change resolution later without breaking old cached responses.
+It removes point-level precision and is still local enough for a 30 km recommendation query. The shared URL can change resolution later under an explicit migration.
 
 ## Why only a static map fallback?
 
@@ -1337,12 +1098,6 @@ One image provides recognition value while keeping cards compact and network use
 # References
 
 [^vinext]: vinext, official project and Cloudflare deployment overview: https://vinext.io/
-
-[^cf-cache]: Cloudflare, Workers Cache configuration, versioning, cache directives, stale serving, and header precedence: https://developers.cloudflare.com/workers/cache/configuration/
-
-[^cf-rate]: Cloudflare, Workers Rate Limiting binding, locality, performance, and accuracy: https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
-
-[^cf-kv]: Cloudflare, Workers KV architecture and eventual consistency: https://developers.cloudflare.com/kv/concepts/how-kv-works/
 
 [^inat-api]: iNaturalist API v1 Swagger definition, including `observations/species_counts`, parameters, response fields, public versus protected operations, and taxon photo metadata: https://api.inaturalist.org/v1/swagger.json
 
