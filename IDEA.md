@@ -10,7 +10,7 @@ date: "13 July 2026"
 **Primary platform:** Mobile web  
 **Implementation:** vinext on Cloudflare Workers  
 
-> **Product decision:** Build a deliberately small, mobile-first view into iNaturalist data. The client converts the user's exact location into an approximate H3 cell before sending anything to the server. A single cacheable API route requests the most frequently observed fungi near the cell centre and around the current time of year. The MVP uses no database, KV namespace, R2 bucket, map, user account, or iNaturalist authentication.
+> **Product decision:** Build a deliberately small, mobile-first view into iNaturalist data. The client converts either device location or a point chosen on a static New Zealand map into an approximate H3 cell before sending anything to the server. A single cacheable API route requests the most frequently observed fungi near the cell centre and around the current time of year. The MVP uses no database, KV namespace, R2 bucket, map SDK, user account, or iNaturalist authentication.
 
 ## Contents
 
@@ -27,8 +27,8 @@ date: "13 July 2026"
 |---|---|
 | Product | A quick, helpful view of fungi that may be around the user now |
 | Primary experience | Mobile-first ranked list; acceptable centred desktop layout |
-| Map | None |
-| Location | Browser geolocation converted locally to H3 resolution 6 |
+| Map | Route-isolated static SVG fallback at `/map`; no tiles or map SDK |
+| Location | Browser geolocation or a manual map point converted locally to H3 resolution 6 |
 | Exact coordinates | Used only in the browser, then discarded |
 | Seasonal query | Previous, current, and next calendar month across all years |
 | Geographic query | 30 km radius from the H3 cell centre |
@@ -89,7 +89,7 @@ A person in New Zealand who is outdoors, planning a walk, curious about the curr
 
 - Mushroom identification from a photograph.
 - Edibility, toxicity, harvesting, or medical advice.
-- A map or map-based browsing.
+- General-purpose map browsing, pan/zoom tiles, or geographic search.
 - User accounts, saved lists, comments, voting, or submissions.
 - Uploading observations to iNaturalist.
 - Real-time sightings or alerts.
@@ -271,7 +271,7 @@ Return the top 20 results. Request up to 30 upstream if useful for resilience, b
 | FR-011 | The application must work without an iNaturalist API key, user login, application login, or OAuth flow. |
 | FR-012 | The response must include coverage metadata that can represent later nearby-cell or wider-radius expansion. |
 | FR-013 | The application must provide a useful denied-location, no-result, and upstream-error state. |
-| FR-014 | No map code or map dependency may be included in the MVP bundle. |
+| FR-014 | The `/map` fallback must use route-isolated static SVG geometry with no map SDK, tile service, or geocoder. |
 
 ## 1.12 Responsive design requirements
 
@@ -1318,9 +1318,9 @@ Workers Cache already handles the hot path before Worker execution. KV adds valu
 
 It removes point-level precision, yields substantial cache sharing, and is still local enough for a 30 km recommendation query. The API version can change resolution later without breaking old cached responses.
 
-## Why no map?
+## Why only a static map fallback?
 
-A map adds JavaScript, interaction design, accessibility work, location detail, and product complexity without improving the core ranked-list job.
+The ranked list remains the core job. A route-isolated SVG outline provides a private fallback when device location is unavailable without adding tiles, pan and zoom controls, a geocoder, or a map SDK to the primary experience.
 
 ## Why one image?
 

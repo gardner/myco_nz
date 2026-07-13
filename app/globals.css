@@ -47,6 +47,7 @@ a {
 
 button:focus-visible,
 a:focus-visible,
+select:focus-visible,
 h1:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

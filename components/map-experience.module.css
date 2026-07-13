@@ -1,0 +1,197 @@
+.experience {
+  min-width: 0;
+  padding-top: clamp(28px, 6vh, 52px);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.experience h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.intro {
+  max-width: 620px;
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.mapFrame {
+  position: relative;
+  width: 100%;
+  height: min(56dvh, 580px);
+  min-height: 400px;
+  margin-top: 22px;
+  overflow: hidden;
+  background: #e7ede9;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  touch-action: manipulation;
+}
+
+.mainlandMap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+}
+
+.land {
+  fill: #9fb9a8;
+  stroke: var(--action);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  transition: fill 140ms ease;
+}
+
+.land:hover {
+  fill: #7fa18b;
+}
+
+.chathamInset {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 112px;
+  padding: 8px;
+  background: rgb(255 255 255 / 88%);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+}
+
+.chathamInset > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.chathamInset svg {
+  display: block;
+  width: 100%;
+  height: 62px;
+}
+
+.namedAreaForm {
+  margin-top: 22px;
+}
+
+.namedAreaForm > label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.namedAreaControls {
+  display: grid;
+  gap: 10px;
+}
+
+.namedAreaControls select,
+.namedAreaControls button {
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 7px;
+}
+
+.namedAreaControls select {
+  width: 100%;
+  height: 48px;
+  padding: 0 38px 0 12px;
+  color: var(--text);
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+.namedAreaControls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  background: var(--action);
+  border: 1px solid var(--action);
+  cursor: pointer;
+}
+
+.namedAreaControls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 16px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.privacy svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--accent-dark);
+}
+
+.privacy a {
+  color: var(--action);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.feedback {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  color: #7a2e16;
+  font-size: 13px;
+  line-height: 1.45;
+  background: #f8e9e2;
+  border-left: 3px solid var(--accent-dark);
+}
+
+.provenance {
+  margin: 8px 0 0 25px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (min-width: 36rem) {
+  .namedAreaControls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (min-width: 40rem) {
+  .experience h1 {
+    font-size: 36px;
+  }
+
+  .mapFrame {
+    min-height: 480px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .land {
+    transition: none;
+  }
+}

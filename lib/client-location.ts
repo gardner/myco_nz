@@ -2,6 +2,8 @@ export const STORAGE_KEY = "nearby-fungi:location:v1";
 const H3_RESOLUTION = 6;
 const MAX_STORED_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const RESOLUTION_SIX_CELL = /^86[0-9a-f]{13}$/;
+const RESULTS_FOCUS_KEY = "nearby-fungi:focus-results";
+let locationHandoff: string | null = null;
 
 export type StoredLocation = {
   version: 1;
@@ -43,6 +45,13 @@ export async function getApproximateCell(
     );
   });
 
+  return coordinatesToApproximateCell(latitude, longitude);
+}
+
+export async function coordinatesToApproximateCell(
+  latitude: number,
+  longitude: number,
+): Promise<string> {
   const { latLngToCell } = await import("h3-js");
   return latLngToCell(latitude, longitude, H3_RESOLUTION);
 }
@@ -65,6 +74,17 @@ export function storeLocationCell(
   }
 }
 
+export function handoffLocationCell(cell: string, storage?: Storage): void {
+  locationHandoff = cell;
+  storeLocationCell(cell, storage);
+}
+
+export function consumeLocationHandoff(): string | null {
+  const cell = locationHandoff;
+  locationHandoff = null;
+  return cell;
+}
+
 export function readStoredLocation(
   storage?: Storage,
   now: Date = new Date(),
@@ -79,6 +99,25 @@ export function readStoredLocation(
     return value;
   } catch {
     return null;
+  }
+}
+
+export function markResultsForFocus(storage?: Storage): void {
+  try {
+    (storage ?? sessionStorage).setItem(RESULTS_FOCUS_KEY, "1");
+  } catch {
+    // Focus restoration is an enhancement; navigation can continue without it.
+  }
+}
+
+export function consumeResultsFocus(storage?: Storage): boolean {
+  try {
+    const target = storage ?? sessionStorage;
+    const shouldFocus = target.getItem(RESULTS_FOCUS_KEY) === "1";
+    target.removeItem(RESULTS_FOCUS_KEY);
+    return shouldFocus;
+  } catch {
+    return false;
   }
 }
 

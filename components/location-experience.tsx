@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 
 import styles from "@/components/location-experience.module.css";
 import {
@@ -12,6 +13,8 @@ import {
   StatusView,
 } from "@/components/location-views";
 import {
+  consumeLocationHandoff,
+  consumeResultsFocus,
   getApproximateCell,
   getLocationSeed,
   LocationAccessError,
@@ -22,12 +25,13 @@ import { fetchFungi, FungiClientError } from "@/lib/fungi-client";
 import type { FungiResponse } from "@/lib/types";
 
 type ViewState =
-  | { status: "idle" | "locating" | "denied" | "unsupported" | "unavailable" }
+  | { status: "idle" | "locating" | "unsupported" | "unavailable" }
   | { status: "loading"; cell: string }
   | { status: "success" | "empty"; data: FungiResponse; cell: string }
   | { status: "error" | "outside"; cell: string };
 
 export function LocationExperience() {
+  const router = useRouter();
   const [state, setState] = useState<ViewState>({ status: "idle" });
   const activeRequest = useRef<AbortController | null>(null);
   const operationGeneration = useRef(0);
@@ -73,9 +77,13 @@ export function LocationExperience() {
         setState({ status: "unavailable" });
         return;
       }
+      if (error.code === "denied") {
+        router.replace("/map");
+        return;
+      }
       setState({ status: error.code });
     }
-  }, [loadResults]);
+  }, [loadResults, router]);
 
   const retryResults = useCallback(
     async (cell: string) => {
@@ -86,14 +94,21 @@ export function LocationExperience() {
   );
 
   useEffect(() => {
+    const handedOffCell = consumeLocationHandoff();
     const stored = readStoredLocation();
     const seedDisabled = new URLSearchParams(window.location.search).has("disable_location_seed");
-    const initialCell = stored?.cell ?? (seedDisabled ? null : getLocationSeed());
+    const initialCell = handedOffCell ?? stored?.cell ?? (seedDisabled ? null : getLocationSeed());
+    const markedForFocus = initialCell ? consumeResultsFocus() : false;
+    const focusRestoredResults = Boolean(handedOffCell) || markedForFocus;
     const restoreTimer = initialCell
-      ? window.setTimeout(() => void loadResults(initialCell), 0)
+      ? window.setTimeout(() => {
+          focusAfterAction.current = focusRestoredResults;
+          void loadResults(initialCell);
+        }, 0)
       : undefined;
     return () => {
       if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
+      operationGeneration.current += 1;
       activeRequest.current?.abort();
     };
   }, [loadResults]);
@@ -158,15 +173,6 @@ function StateView({
           onAction={requestLocation}
         />
       );
-    case "denied":
-      return (
-        <StatusView
-          heading="Location access is off"
-          description="Allow location access in your browser, then try again. Exact coordinates stay on this device."
-          action="Try again"
-          onAction={requestLocation}
-        />
-      );
     case "unsupported":
       return (
         <StatusView
@@ -174,6 +180,7 @@ function StateView({
           description="This browser or device does not provide location access."
           action="Try again"
           onAction={requestLocation}
+          secondaryAction={{ href: "/map", label: "Choose on map" }}
         />
       );
     case "unavailable":
@@ -183,6 +190,7 @@ function StateView({
           description="Check your device location settings and try again."
           action="Try again"
           onAction={requestLocation}
+          secondaryAction={{ href: "/map", label: "Choose on map" }}
         />
       );
     case "locating":
@@ -198,7 +206,6 @@ function liveMessage(state: ViewState): string {
   if (state.status === "success") return `${state.data.results.length} fungi results loaded.`;
   if (state.status === "empty") return "No nearby fungi results found.";
   if (state.status === "idle") return "Ready to find nearby fungi.";
-  if (state.status === "denied") return "Location access is off.";
   if (state.status === "unsupported") return "Location is not available in this browser.";
   if (state.status === "unavailable") return "Your approximate area could not be found.";
   if (state.status === "outside") return "Nearby Fungi currently covers Aotearoa New Zealand.";

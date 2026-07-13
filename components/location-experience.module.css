@@ -60,6 +60,18 @@
   opacity: 0.72;
 }
 
+.secondaryAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 10px;
+  color: var(--action);
+  font-weight: 750;
+  text-underline-offset: 3px;
+}
+
 .privacy {
   display: flex;
   align-items: flex-start;
@@ -211,6 +223,10 @@
 @media (min-width: 30rem) {
   .primaryButton {
     width: auto;
+  }
+
+  .secondaryAction {
+    width: max-content;
   }
 }
 

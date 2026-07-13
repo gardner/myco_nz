@@ -4,8 +4,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LocationExperience } from "@/components/location-experience";
-import { STORAGE_KEY } from "@/lib/client-location";
+import { markResultsForFocus, STORAGE_KEY } from "@/lib/client-location";
 import { fungiResponse } from "@/tests/fixtures";
+
+const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceMock }),
+}));
 
 function setGeolocation(
   implementation: (success: PositionCallback, error: PositionErrorCallback) => void,
@@ -30,6 +36,8 @@ function fetchResponse(body: unknown, status = 200) {
 describe("LocationExperience", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
+    replaceMock.mockClear();
   });
 
   afterEach(() => {
@@ -41,6 +49,7 @@ describe("LocationExperience", () => {
 
     expect(screen.getByRole("heading", { name: "Fungi likely near you" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Show fungi near me" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Choose on map" })).toHaveAttribute("href", "/map");
     expect(screen.getByText(/exact location stays on this device/i)).toBeVisible();
     expect(screen.getByRole("link", { name: /an approximate area/i })).toMatchObject({
       href: "https://h3geo.org/docs",
@@ -103,15 +112,80 @@ describe("LocationExperience", () => {
     expect(refreshButton.closest("header")).toBe(heading.closest("header"));
   });
 
-  it("shows the denied-location recovery state", async () => {
+  it("focuses map-selected results after restoring their cell", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        cell: "86bb2955fffffff",
+        resolution: 6,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    markResultsForFocus(sessionStorage);
+    setGeolocation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse(fungiResponse)));
+
+    render(<LocationExperience />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Most often observed near you" }),
+    ).toHaveFocus();
+  });
+
+  it("moves denied location access to the map route", async () => {
     setGeolocation((_, error) => error({ code: 1 } as GeolocationPositionError));
     render(<LocationExperience />);
 
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
 
-    expect(await screen.findByRole("heading", { name: "Location access is off" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("Location access is off");
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/map"));
+  });
+
+  it("discards a pending location result after leaving the experience", async () => {
+    let resolveLocation: PositionCallback | undefined;
+    setGeolocation((success) => {
+      resolveLocation = success;
+    });
+    const fetchMock = vi.fn(() => fetchResponse(fungiResponse));
+    vi.stubGlobal("fetch", fetchMock);
+    const { unmount } = render(<LocationExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
+    unmount();
+    resolveLocation?.({
+      coords: { latitude: -41.28664, longitude: 174.77557 },
+    } as GeolocationPosition);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "unsupported",
+      configure: () => {
+        Object.defineProperty(navigator, "geolocation", {
+          configurable: true,
+          value: undefined,
+        });
+      },
+      heading: "Location isn't available",
+    },
+    {
+      name: "unavailable",
+      configure: () => setGeolocation((_, error) => error({ code: 2 } as GeolocationPositionError)),
+      heading: "We couldn't find your area",
+    },
+  ])("offers map recovery when location is $name", async ({ configure, heading }) => {
+    configure();
+    render(<LocationExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
+
+    expect(await screen.findByRole("heading", { name: heading })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Choose on map" })).toHaveAttribute("href", "/map");
   });
 
   it("does not let an obsolete load overwrite a refresh failure", async () => {
@@ -133,7 +207,7 @@ describe("LocationExperience", () => {
 
     render(<LocationExperience />);
     fireEvent.click(await screen.findByRole("button", { name: "Refresh location" }));
-    expect(await screen.findByRole("heading", { name: "Location access is off" })).toBeVisible();
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/map"));
 
     resolveFetch?.(
       new Response(JSON.stringify(fungiResponse), {
@@ -142,7 +216,7 @@ describe("LocationExperience", () => {
       }),
     );
     await waitFor(() => expect(screen.queryByText("White Basket Fungus")).not.toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "Location access is off" })).toBeVisible();
+    expect(replaceMock).toHaveBeenCalledTimes(1);
   });
 
   it("renders empty and upstream error states", async () => {

@@ -1,4 +1,5 @@
-import { ExternalLink, LocateFixed, LockKeyhole, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, LocateFixed, LockKeyhole, MapPinned, RefreshCw } from "lucide-react";
 
 import { FungiList } from "@/components/fungi-list";
 import styles from "@/components/location-experience.module.css";
@@ -40,6 +41,10 @@ export function LocationGate({
         <LocateFixed aria-hidden="true" size={20} />
         {locating ? "Finding your area..." : "Show fungi near me"}
       </button>
+      <Link className={styles.secondaryAction} href="/map">
+        <MapPinned aria-hidden="true" size={18} />
+        Choose on map
+      </Link>
       <p className={styles.privacy}>
         <LockKeyhole aria-hidden="true" size={17} />
         <span>
@@ -112,11 +117,13 @@ export function StatusView({
   description,
   action,
   onAction,
+  secondaryAction,
 }: {
   heading: string;
   description: string;
   action: string;
   onAction: () => void;
+  secondaryAction?: { href: string; label: string };
 }) {
   return (
     <div className={styles.statusPanel}>
@@ -125,6 +132,12 @@ export function StatusView({
       <button className={styles.primaryButton} onClick={onAction} type="button">
         {action}
       </button>
+      {secondaryAction && (
+        <Link className={styles.secondaryAction} href={secondaryAction.href}>
+          <MapPinned aria-hidden="true" size={18} />
+          {secondaryAction.label}
+        </Link>
+      )}
     </div>
   );
 }

@@ -3,9 +3,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  consumeLocationHandoff,
   getApproximateCell,
   getLocationSeed,
+  handoffLocationCell,
   LocationAccessError,
+  consumeResultsFocus,
+  markResultsForFocus,
   readStoredLocation,
   STORAGE_KEY,
   storeLocationCell,
@@ -85,6 +89,26 @@ describe("stored approximate location", () => {
     };
 
     expect(() => storeLocationCell("86bb2955fffffff", unavailableStorage, now)).not.toThrow();
+  });
+
+  it("consumes a one-shot results focus marker", () => {
+    markResultsForFocus(sessionStorage);
+
+    expect(consumeResultsFocus(sessionStorage)).toBe(true);
+    expect(consumeResultsFocus(sessionStorage)).toBe(false);
+  });
+
+  it("hands a cell across client routes when persistent storage is blocked", () => {
+    const unavailableStorage = {
+      setItem: () => {
+        throw new DOMException("Storage unavailable", "SecurityError");
+      },
+    } as unknown as Storage;
+
+    handoffLocationCell("86da96487ffffff", unavailableStorage);
+
+    expect(consumeLocationHandoff()).toBe("86da96487ffffff");
+    expect(consumeLocationHandoff()).toBeNull();
   });
 
   it.each([

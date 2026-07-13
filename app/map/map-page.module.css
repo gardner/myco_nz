@@ -1,0 +1,32 @@
+.routeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+}
+
+.brandMark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.brandMark img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.backLink {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--action);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+}

@@ -4,9 +4,11 @@ Nearby Fungi is a mobile-first view of the fungi most often recorded near an app
 
 ## Privacy Model
 
-The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Only the cell, resolution, and update time are stored locally. Network requests contain the approximate cell, never the browser coordinates.
+The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Users can instead choose a point on the static `/map` fallback; that point is converted and discarded the same way. Only the cell, resolution, and update time are stored locally. Network requests contain the approximate cell, never the original coordinates.
 
-The server converts the shared cell to its centre, applies fixed 30 km and seasonal filters, and returns a normalized response. There are no accounts, analytics, database, KV namespace, R2 bucket, map, or iNaturalist credentials.
+The server converts the shared cell to its centre, applies fixed 30 km and seasonal filters, and returns a normalized response. There are no accounts, analytics, database, KV namespace, R2 bucket, map SDK, tile service, or iNaturalist credentials.
+
+The static New Zealand outline is derived from Natural Earth 1:10m Admin 0 - Countries v5.1.1, which is public-domain data.
 
 ## Development
 
@@ -26,7 +28,7 @@ For local development without browser geolocation, set `NEXT_PUBLIC_LOCATION_SEE
 ```bash
 pnpm quality       # TypeScript and ESLint
 pnpm test          # Vitest unit, integration, and component tests
-pnpm test:e2e      # Chromium, mobile layout, privacy, and axe checks
+pnpm test:e2e      # Chromium, WebKit, mobile layout, privacy, and axe checks
 pnpm check:vinext  # vinext compatibility scan
 pnpm build         # Cloudflare Worker production build
 pnpm verify        # All non-browser checks above
