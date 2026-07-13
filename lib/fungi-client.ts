@@ -3,6 +3,7 @@ import type { FungiResponse } from "@/lib/types";
 export type ClientErrorCode =
   | "invalid-location"
   | "outside-new-zealand"
+  | "rate-limited"
   | "unavailable"
   | "invalid-response";
 
@@ -18,20 +19,52 @@ export async function fetchFungi(
   month: number,
   signal: AbortSignal,
 ): Promise<FungiResponse> {
-  const response = await fetch(`/api/fungi/v1/en-NZ/r6/${cell}/${month}`, {
-    headers: { Accept: "application/json" },
-    signal,
-  });
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new FungiClientError("invalid-location");
+  }
+  const [{ validateLocationCell }, { buildSpeciesCountsUrl, normaliseSpeciesCounts }] =
+    await Promise.all([import("@/lib/validation"), import("@/lib/inaturalist")]);
+  const location = validateLocationCell(cell);
+  if (!location.ok) throw locationError(location.reason);
 
-  if (response.status === 400) throw new FungiClientError("invalid-location");
-  if (response.status === 422) throw new FungiClientError("outside-new-zealand");
+  const [centreLat, centreLng] = location.centre;
+  const response = await fetch(
+    buildSpeciesCountsUrl({ centreLat, centreLng, requestedMonth: month }),
+    {
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+      referrerPolicy: "strict-origin-when-cross-origin",
+      signal,
+    },
+  );
+
+  if (response.status === 429) throw new FungiClientError("rate-limited");
   if (!response.ok) throw new FungiClientError("unavailable");
 
-  const payload: unknown = await response.json();
-  if (!isFungiResponse(payload) || !matchesRequest(payload, cell, month)) {
+  let data: FungiResponse;
+  try {
+    const payload: unknown = await response.json();
+    data = normaliseSpeciesCounts({
+      payload,
+      cell,
+      requestedMonth: month,
+      centreLat,
+      centreLng,
+      generatedAt: new Date(),
+    });
+  } catch {
     throw new FungiClientError("invalid-response");
   }
-  return payload;
+  if (!isFungiResponse(data) || !matchesRequest(data, cell, month)) {
+    throw new FungiClientError("invalid-response");
+  }
+  return data;
+}
+
+function locationError(reason: string): FungiClientError {
+  return new FungiClientError(
+    reason === "outside-new-zealand" ? "outside-new-zealand" : "invalid-location",
+  );
 }
 
 function matchesRequest(payload: FungiResponse, cell: string, month: number): boolean {

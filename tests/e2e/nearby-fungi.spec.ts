@@ -1,26 +1,34 @@
 import AxeBuilder from "@axe-core/playwright";
-import { latLngToCell } from "h3-js";
-import { expect, test } from "@playwright/test";
+import { cellToLatLng, latLngToCell } from "h3-js";
+import { expect, test, type Route } from "@playwright/test";
 
-import { getSeasonalMonths } from "../../lib/months";
-import { fungiResponse } from "../fixtures";
+import realSpeciesCounts from "../fixtures/inaturalist-species-counts.json" with {
+  type: "json",
+};
 
 const exactLocation = { latitude: -41.28664, longitude: 174.77557 };
 const appPath = "/?disable_location_seed=1";
 const currentMonth = new Date().getMonth() + 1;
+const speciesCountsRoute =
+  "https://api.inaturalist.org/v1/observations/species_counts**";
 
-function fungiResponseForUrl(url: string) {
-  const path = new URL(url).pathname.split("/");
-  const month = Number(path.at(-1));
-  return {
-    ...fungiResponse,
-    query: {
-      ...fungiResponse.query,
-      cell: path.at(-2),
-      requestedMonth: month,
-      includedMonths: getSeasonalMonths(month),
-    },
-  };
+function fulfillSpeciesCounts(route: Route) {
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*" },
+    body: JSON.stringify(realSpeciesCounts),
+  });
+}
+
+function expectCellCentreRequest(requestUrl: string, cell: string) {
+  const url = new URL(requestUrl);
+  const [latitude, longitude] = cellToLatLng(cell);
+  expect(`${url.origin}${url.pathname}`).toBe(
+    "https://api.inaturalist.org/v1/observations/species_counts",
+  );
+  expect(url.searchParams.get("lat")).toBe(latitude.toFixed(5));
+  expect(url.searchParams.get("lng")).toBe(longitude.toFixed(5));
 }
 
 test.describe("Nearby Fungi", () => {
@@ -34,13 +42,9 @@ test.describe("Nearby Fungi", () => {
     page,
   }, testInfo) => {
     const apiRequests: string[] = [];
-    await page.route("**/api/fungi/**", async (route) => {
+    await page.route(speciesCountsRoute, async (route) => {
       apiRequests.push(route.request().url());
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(fungiResponseForUrl(route.request().url())),
-      });
+      await fulfillSpeciesCounts(route);
     });
 
     await page.goto(appPath);
@@ -60,7 +64,7 @@ test.describe("Nearby Fungi", () => {
     expect((await resultsHeader.boundingBox())?.height).toBeLessThanOrEqual(150);
     await expect(page.getByRole("article")).toHaveCount(3);
     expect(apiRequests).toHaveLength(1);
-    expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
+    expectCellCentreRequest(apiRequests[0], "86bb2955fffffff");
     expect(apiRequests[0]).not.toContain(String(exactLocation.latitude));
     expect(apiRequests[0]).not.toContain(String(exactLocation.longitude));
     await expect(page).toHaveURL(
@@ -92,13 +96,7 @@ test.describe("Nearby Fungi", () => {
         }),
       );
     });
-    await page.route("**/api/fungi/**", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(fungiResponseForUrl(route.request().url())),
-      }),
-    );
+    await page.route(speciesCountsRoute, fulfillSpeciesCounts);
 
     await page.goto(appPath);
 
@@ -145,13 +143,9 @@ test("routes denied location access to the map", async ({ browser }, testInfo) =
 test("converts a map click locally and loads results by H3 cell", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   const apiRequests: string[] = [];
-  await page.route("**/api/fungi/**", async (route) => {
+  await page.route(speciesCountsRoute, async (route) => {
     apiRequests.push(route.request().url());
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
-    });
+    await fulfillSpeciesCounts(route);
   });
   await page.goto("/map");
   await expect(page.getByRole("combobox", { name: "Choose a named area" })).toBeEnabled();
@@ -177,7 +171,7 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
   await expect(page.getByRole("article")).toHaveCount(3);
   expect(apiRequests).toHaveLength(1);
-  expect(apiRequests[0]).toContain(`/api/fungi/v1/en-NZ/r6/${expectedCell}/`);
+  expectCellCentreRequest(apiRequests[0], expectedCell);
   expect(apiRequests[0]).not.toContain(String(selection.longitude));
   expect(apiRequests[0]).not.toContain(String(selection.latitude));
 
@@ -216,13 +210,9 @@ test("uses the named Chatham selection when browser storage is blocked", async (
     };
   });
   const apiRequests: string[] = [];
-  await page.route("**/api/fungi/**", async (route) => {
+  await page.route(speciesCountsRoute, async (route) => {
     apiRequests.push(route.request().url());
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
-    });
+    await fulfillSpeciesCounts(route);
   });
   await page.goto("/map");
 
@@ -236,7 +226,7 @@ test("uses the named Chatham selection when browser storage is blocked", async (
   );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
   expect(apiRequests).toHaveLength(1);
-  expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb364d7ffffff/");
+  expectCellCentreRequest(apiRequests[0], "86bb364d7ffffff");
 });
 
 test("keeps the result column readable on desktop", async ({ page }, testInfo) => {
@@ -252,13 +242,7 @@ test("keeps the result column readable on desktop", async ({ page }, testInfo) =
       }),
     );
   });
-  await page.route("**/api/fungi/**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(fungiResponseForUrl(route.request().url())),
-    }),
-  );
+  await page.route(speciesCountsRoute, fulfillSpeciesCounts);
 
   await page.goto(appPath);
   await expect(page.getByRole("article")).toHaveCount(3);

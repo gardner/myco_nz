@@ -1,31 +1,25 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { getSeasonalMonths } from "../../lib/months";
-import { fungiResponse } from "../fixtures";
+import realSpeciesCounts from "../fixtures/inaturalist-species-counts.json" with {
+  type: "json",
+};
 
 const cell = "86bb2955fffffff";
+const speciesCountsRoute =
+  "https://api.inaturalist.org/v1/observations/species_counts**";
 
 test("loads and updates a shareable month selection at 320px", async ({ page }, testInfo) => {
   const apiRequests: string[] = [];
   await page.setViewportSize({ width: 320, height: 800 });
-  await page.route("**/api/fungi/**", async (route) => {
+  await page.route(speciesCountsRoute, async (route) => {
     const url = route.request().url();
-    const path = new URL(url).pathname.split("/");
-    const month = Number(path.at(-1));
     apiRequests.push(url);
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        ...fungiResponse,
-        query: {
-          ...fungiResponse.query,
-          cell: path.at(-2),
-          requestedMonth: month,
-          includedMonths: getSeasonalMonths(month),
-        },
-      }),
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify(realSpeciesCounts),
     });
   });
 
@@ -53,7 +47,9 @@ test("loads and updates a shareable month selection at 320px", async ({ page }, 
   await expect(page).toHaveURL(`/?cell=${cell}&month=1`);
   await expect(january).toBeChecked();
   await expect(january).toBeFocused();
-  expect(apiRequests.at(-1)).toContain(`/api/fungi/v1/en-NZ/r6/${cell}/1`);
+  await expect
+    .poll(() => new URL(apiRequests.at(-1)!).searchParams.get("month"))
+    .toBe("12,1,2");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LocationExperience } from "@/components/location-experience";
 import { STORAGE_KEY } from "@/lib/client-location";
-import { fungiResponse } from "@/tests/fixtures";
+import realSpeciesCounts from "@/tests/fixtures/inaturalist-species-counts.json";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -31,22 +31,14 @@ function fetchResponse(body: unknown, status = 200) {
   );
 }
 
-function fungiResponseForRequest(input: RequestInfo | URL) {
-  const path = String(input).split("/");
-  const requestedMonth = Number(path.at(-1));
-  return {
-    ...fungiResponse,
-    query: {
-      ...fungiResponse.query,
-      cell: path.at(-2),
-      requestedMonth,
-      includedMonths: [
-        requestedMonth === 1 ? 12 : requestedMonth - 1,
-        requestedMonth,
-        requestedMonth === 12 ? 1 : requestedMonth + 1,
-      ],
-    },
-  };
+function requestedMonth(input: RequestInfo | URL): number {
+  return Number(new URL(String(input)).searchParams.get("month")?.split(",")[1]);
+}
+
+function createSpeciesCountsFetch() {
+  return vi.fn<
+    (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  >(() => fetchResponse(realSpeciesCounts));
 }
 
 describe("LocationExperience request regressions", () => {
@@ -63,9 +55,7 @@ describe("LocationExperience request regressions", () => {
   it("loads a shared cell and month without requesting location", async () => {
     window.history.replaceState(null, "", "/?cell=86bb2955fffffff&month=3");
     const geolocation = setGeolocation(() => undefined);
-    const fetchMock = vi.fn((input: RequestInfo | URL) =>
-      fetchResponse(fungiResponseForRequest(input)),
-    );
+    const fetchMock = createSpeciesCountsFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     render(<LocationExperience />);
@@ -73,9 +63,17 @@ describe("LocationExperience request regressions", () => {
     const [firstResult] = await screen.findAllByRole("article");
     const selector = screen.getByRole("radiogroup", { name: "Month of year" });
     expect(geolocation).not.toHaveBeenCalled();
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      "/api/fungi/v1/en-NZ/r6/86bb2955fffffff/3",
+    const requestUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(`${requestUrl.origin}${requestUrl.pathname}`).toBe(
+      "https://api.inaturalist.org/v1/observations/species_counts",
     );
+    expect(Object.fromEntries(requestUrl.searchParams)).toMatchObject({
+      lat: "-41.30340",
+      lng: "174.75272",
+      month: "2,3,4",
+      iconic_taxa: "Fungi",
+      quality_grade: "research",
+    });
     expect(screen.getByRole("radio", { name: "March" })).toBeChecked();
     expect(
       selector.compareDocumentPosition(firstResult) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -83,9 +81,7 @@ describe("LocationExperience request regressions", () => {
   });
 
   it("refetches and replaces the share URL when the month changes", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) =>
-      fetchResponse(fungiResponseForRequest(input)),
-    );
+    const fetchMock = createSpeciesCountsFetch();
     vi.stubGlobal("fetch", fetchMock);
     setGeolocation(() => undefined);
     render(<LocationExperience />);
@@ -94,8 +90,8 @@ describe("LocationExperience request regressions", () => {
     fireEvent.click(screen.getByRole("radio", { name: "January" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      "/api/fungi/v1/en-NZ/r6/86bb2955fffffff/1",
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("month")).toBe(
+      "12,1,2",
     );
     expect(window.location.pathname + window.location.search).toBe(
       "/?cell=86bb2955fffffff&month=1",
@@ -107,9 +103,7 @@ describe("LocationExperience request regressions", () => {
     setGeolocation((success) =>
       success({ coords: { latitude: -41.28664, longitude: 174.77557 } } as GeolocationPosition),
     );
-    const fetchMock = vi.fn((input: RequestInfo | URL) =>
-      fetchResponse(fungiResponseForRequest(input)),
-    );
+    const fetchMock = createSpeciesCountsFetch();
     vi.stubGlobal("fetch", fetchMock);
     render(<LocationExperience />);
     await screen.findByText("White Basket Fungus");
@@ -119,19 +113,14 @@ describe("LocationExperience request regressions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh location" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    expect(String(fetchMock.mock.calls[2][0])).toContain(
-      "/api/fungi/v1/en-NZ/r6/86bb2955fffffff/1",
+    expect(new URL(String(fetchMock.mock.calls[2][0])).searchParams.get("month")).toBe(
+      "12,1,2",
     );
     expect(window.location.search).toBe("?cell=86bb2955fffffff&month=1");
   });
 
-  it("keeps month selection interactive while a previous month is loading", async () => {
-    const pending = new Map<number, (response: Response) => void>();
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const month = Number(String(input).split("/").at(-1));
-      if (month === 7) return fetchResponse(fungiResponseForRequest(input));
-      return new Promise<Response>((resolve) => pending.set(month, resolve));
-    });
+  it("coalesces rapid month choices while keeping the selector interactive", async () => {
+    const fetchMock = createSpeciesCountsFetch();
     vi.stubGlobal("fetch", fetchMock);
     setGeolocation(() => undefined);
     render(<LocationExperience />);
@@ -140,31 +129,27 @@ describe("LocationExperience request regressions", () => {
     const january = screen.getByRole("radio", { name: "January" });
     january.focus();
     fireEvent.click(january);
-    await waitFor(() => expect(pending.has(1)).toBe(true));
-
     expect(screen.getByRole("radio", { name: "January" })).toHaveFocus();
     const february = screen.getByRole("radio", { name: "February" });
     expect(february).toBeEnabled();
     fireEvent.click(february);
-    await waitFor(() => expect(pending.has(2)).toBe(true));
-    pending.get(2)?.(await fetchResponse(fungiResponseForRequest(fetchMock.mock.calls[2][0])));
 
-    expect(await screen.findByText("White Basket Fungus")).toBeVisible();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(requestedMonth(fetchMock.mock.calls[1][0])).toBe(2);
     expect(screen.getByRole("radio", { name: "February" })).toBeChecked();
     expect(window.location.search).toBe("?cell=86bb2955fffffff&month=2");
   });
 
   it.each([
-    ["invalid", "86fffffffffffff", 400, "This shared area isn't valid"],
+    ["invalid", "86fffffffffffff", "This shared area isn't valid"],
     [
       "outside New Zealand",
       "86be0e35fffffff",
-      422,
       "Nearby Fungi currently covers Aotearoa New Zealand",
     ],
   ])(
     "does not persist a shared %s cell and offers map recovery",
-    async (_, cell, status, heading) => {
+    async (_, cell, heading) => {
       window.history.replaceState(null, "", `/?cell=${cell}&month=7`);
       localStorage.setItem(
         STORAGE_KEY,
@@ -176,7 +161,8 @@ describe("LocationExperience request regressions", () => {
         }),
       );
       setGeolocation(() => undefined);
-      vi.stubGlobal("fetch", vi.fn(() => fetchResponse({ error: "Unsupported area" }, status)));
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
 
       render(<LocationExperience />);
 
@@ -186,6 +172,7 @@ describe("LocationExperience request regressions", () => {
         "/map?month=7",
       );
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
     },
   );
 });

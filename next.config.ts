@@ -8,7 +8,7 @@ const imageSources = [
 const contentSecurityPolicyDirectives = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self'",
+  "connect-src 'self' https://api.inaturalist.org",
   `img-src 'self' data: ${imageSources.join(" ")}`,
   "object-src 'none'",
   "script-src 'self' 'unsafe-inline'",

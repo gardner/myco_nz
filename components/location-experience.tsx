@@ -25,6 +25,7 @@ import {
   buildSharedLocationUrl,
   parseSharedLocationSearch,
 } from "@/lib/shared-location";
+import { createRequestPacer } from "@/lib/request-pacer";
 import type { FungiResponse } from "@/lib/types";
 
 type ViewState =
@@ -47,6 +48,7 @@ export function LocationExperience() {
   const selectedMonth = useRef(currentMonth());
   const focusAfterAction = useRef(false);
   const experience = useRef<HTMLElement | null>(null);
+  const [requestPacer] = useState(createRequestPacer);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   const loadResults = useCallback(async (cell: string, month: number, generation?: number) => {
@@ -59,17 +61,21 @@ export function LocationExperience() {
     setState({ status: "loading", cell, month });
 
     try {
+      await requestPacer.wait(controller.signal);
       const data = await fetchFungi(cell, month, controller.signal);
       if (currentGeneration !== operationGeneration.current) return;
       storeLocationCell(cell);
       setState({ status: data.results.length ? "success" : "empty", data, cell, month });
     } catch (error) {
       if (controller.signal.aborted || currentGeneration !== operationGeneration.current) return;
+      if (error instanceof FungiClientError && error.code === "rate-limited") {
+        requestPacer.defer(10_000);
+      }
       const status = resultErrorStatus(error);
       if (status === "invalid" || status === "outside") clearStoredLocationCell(cell);
       setState({ status, cell, month });
     }
-  }, []);
+  }, [requestPacer]);
 
   const requestLocation = useCallback(async () => {
     const currentGeneration = ++operationGeneration.current;

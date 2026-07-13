@@ -14,4 +14,10 @@ describe("getContentSecurityPolicy", () => {
       "upgrade-insecure-requests",
     );
   });
+
+  it("allows direct requests to the public iNaturalist API", () => {
+    expect(getContentSecurityPolicy(true)).toContain(
+      "connect-src 'self' https://api.inaturalist.org",
+    );
+  });
 });

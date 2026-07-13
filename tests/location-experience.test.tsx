@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationExperience } from "@/components/location-experience";
 import { markResultsForFocus, STORAGE_KEY } from "@/lib/client-location";
 import { getSeasonalMonths } from "@/lib/months";
-import { fungiResponse } from "@/tests/fixtures";
+import realSpeciesCounts from "@/tests/fixtures/inaturalist-species-counts.json";
 
 const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
 
@@ -32,20 +32,6 @@ function fetchResponse(body: unknown, status = 200) {
       headers: { "Content-Type": "application/json" },
     }),
   );
-}
-
-function fungiResponseForRequest(input: RequestInfo | URL) {
-  const path = String(input).split("/");
-  const month = Number(path.at(-1));
-  return {
-    ...fungiResponse,
-    query: {
-      ...fungiResponse.query,
-      cell: path.at(-2),
-      requestedMonth: month,
-      includedMonths: getSeasonalMonths(month),
-    },
-  };
 }
 
 describe("LocationExperience", () => {
@@ -74,16 +60,15 @@ describe("LocationExperience", () => {
     });
   });
 
-  it("converts location locally, fetches only by cell, and renders results", async () => {
+  it("converts location locally and fetches using only the approximate cell centre", async () => {
     const exactLatitude = -41.28664;
     const exactLongitude = 174.77557;
     setGeolocation((success) =>
       success({ coords: { latitude: exactLatitude, longitude: exactLongitude } } as GeolocationPosition),
     );
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      void init;
-      return fetchResponse(fungiResponseForRequest(input));
-    });
+    const fetchMock = vi.fn<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >(() => fetchResponse(realSpeciesCounts));
     vi.stubGlobal("fetch", fetchMock);
 
     render(<LocationExperience />);
@@ -91,10 +76,21 @@ describe("LocationExperience", () => {
 
     expect(await screen.findByRole("heading", { name: "Most often observed near you" })).toBeVisible();
     expect(screen.getByText("White Basket Fungus")).toBeVisible();
-    const requestedUrl = String(fetchMock.mock.calls[0][0]);
-    expect(requestedUrl).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
-    expect(requestedUrl).not.toContain(String(exactLatitude));
-    expect(requestedUrl).not.toContain(String(exactLongitude));
+    const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(`${requestedUrl.origin}${requestedUrl.pathname}`).toBe(
+      "https://api.inaturalist.org/v1/observations/species_counts",
+    );
+    expect(Object.fromEntries(requestedUrl.searchParams)).toMatchObject({
+      lat: "-41.30340",
+      lng: "174.75272",
+      radius: "30",
+      month: getSeasonalMonths(new Date().getMonth() + 1).join(","),
+      iconic_taxa: "Fungi",
+      rank: "species",
+      quality_grade: "research",
+    });
+    expect(requestedUrl.toString()).not.toContain(String(exactLatitude));
+    expect(requestedUrl.toString()).not.toContain(String(exactLongitude));
     expect(window.location.search).toBe(
       `?cell=86bb2955fffffff&month=${new Date().getMonth() + 1}`,
     );
@@ -111,9 +107,7 @@ describe("LocationExperience", () => {
       }),
     );
     const geolocation = setGeolocation(() => undefined);
-    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) =>
-      fetchResponse(fungiResponseForRequest(input)),
-    ));
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse(realSpeciesCounts)));
 
     render(<LocationExperience />);
 
@@ -144,9 +138,7 @@ describe("LocationExperience", () => {
     );
     markResultsForFocus(sessionStorage);
     setGeolocation(() => undefined);
-    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) =>
-      fetchResponse(fungiResponseForRequest(input)),
-    ));
+    vi.stubGlobal("fetch", vi.fn(() => fetchResponse(realSpeciesCounts)));
 
     render(<LocationExperience />);
 
@@ -171,7 +163,7 @@ describe("LocationExperience", () => {
     setGeolocation((success) => {
       resolveLocation = success;
     });
-    const fetchMock = vi.fn(() => fetchResponse(fungiResponse));
+    const fetchMock = vi.fn(() => fetchResponse(realSpeciesCounts));
     vi.stubGlobal("fetch", fetchMock);
     const { unmount } = render(<LocationExperience />);
 
@@ -236,7 +228,7 @@ describe("LocationExperience", () => {
     );
 
     resolveFetch?.(
-      new Response(JSON.stringify(fungiResponse), {
+      new Response(JSON.stringify(realSpeciesCounts), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -249,8 +241,8 @@ describe("LocationExperience", () => {
     const geolocation = setGeolocation((success) =>
       success({ coords: { latitude: -41.28664, longitude: 174.77557 } } as GeolocationPosition),
     );
-    const fetchMock = vi.fn((input: RequestInfo | URL) =>
-      fetchResponse({ ...fungiResponseForRequest(input), results: [] }),
+    const fetchMock = vi.fn(() =>
+      fetchResponse({ ...realSpeciesCounts, results: [] }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -260,6 +252,7 @@ describe("LocationExperience", () => {
 
     unmount();
     localStorage.clear();
+    window.history.replaceState(null, "", "/");
     fetchMock.mockImplementation(() => fetchResponse({ error: "Unavailable" }, 503));
     render(<LocationExperience />);
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
