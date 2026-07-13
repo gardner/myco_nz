@@ -4,13 +4,15 @@ import Link from "next/link";
 
 import { MapExperience } from "@/components/map-experience";
 import styles from "@/app/map/map-page.module.css";
+import { buildStaticMetadata } from "@/lib/social-metadata";
 
 export const dynamic = "force-static";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildStaticMetadata({
   title: "Choose an area | Nearby Fungi",
   description: "Choose an approximate area in Aotearoa New Zealand.",
-};
+  path: "/map",
+});
 
 export default function MapPage() {
   return (

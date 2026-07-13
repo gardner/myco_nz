@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Nearby Fungi | Fungi recorded around you",
-  description:
-    "See fungi most often recorded near your approximate area at this time of year.",
-};
+import { buildRootMetadata } from "@/lib/social-metadata";
+
+export const metadata: Metadata = buildRootMetadata("");
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

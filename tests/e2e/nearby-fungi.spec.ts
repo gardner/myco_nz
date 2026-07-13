@@ -176,7 +176,7 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
     `/?cell=${expectedCell}&month=${currentMonth}`,
   );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
-  await expect(page.getByText(expectedPlace!)).toBeVisible();
+  await expect(page.getByText(expectedPlace!, { exact: true })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(3);
   expect(apiRequests).toHaveLength(1);
   expectCellCentreRequest(apiRequests[0], expectedCell);
@@ -234,7 +234,7 @@ test("uses the named Chatham selection when browser storage is blocked", async (
     `/?cell=86bb364d7ffffff&month=${currentMonth}`,
   );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
-  await expect(page.getByText("Near Waitangi")).toBeVisible();
+  await expect(page.getByText("Near Waitangi", { exact: true })).toBeVisible();
   expect(apiRequests).toHaveLength(1);
   expectCellCentreRequest(apiRequests[0], "86bb364d7ffffff");
 });

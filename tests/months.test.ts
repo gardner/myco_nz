@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatSeasonalRange, getSeasonalMonths } from "@/lib/months";
+import {
+  formatMonthName,
+  formatSeasonalRange,
+  getSeasonalMonths,
+} from "@/lib/months";
 
 describe("getSeasonalMonths", () => {
   it.each([
@@ -19,5 +23,19 @@ describe("formatSeasonalRange", () => {
     [12, "Nov-Jan"],
   ])("formats the range for month %s", (month, expected) => {
     expect(formatSeasonalRange(month)).toBe(expected);
+  });
+});
+
+describe("formatMonthName", () => {
+  it.each([
+    [1, "January"],
+    [9, "September"],
+    [12, "December"],
+  ])("formats month %s", (month, expected) => {
+    expect(formatMonthName(month)).toBe(expected);
+  });
+
+  it.each([0, 1.5, 13])("rejects invalid month %s", (month) => {
+    expect(() => formatMonthName(month)).toThrow(RangeError);
   });
 });

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vinext dev --port 3001",
     "build": "vinext build",
-    "start": "wrangler dev --config dist/server/wrangler.json",
+    "start": "cd dist/server && wrangler dev --config wrangler.json",
     "dev:next": "next dev",
     "build:next": "next build",
     "start:next": "next start",
@@ -22,7 +22,7 @@
     "verify": "pnpm check:bindings && pnpm quality && pnpm test && pnpm check:vinext && pnpm build",
     "dev:vinext": "vinext dev --port 3001",
     "build:vinext": "vinext build",
-    "start:vinext": "wrangler dev --config dist/server/wrangler.json",
+    "start:vinext": "cd dist/server && wrangler dev --config wrangler.json",
     "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
