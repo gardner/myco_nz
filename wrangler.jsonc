@@ -13,7 +13,7 @@
   },
   "cache": {
     "enabled": true,
-    "cross_version_cache": true
+    "cross_version_cache": false
   },
   "observability": {
     "enabled": true,
