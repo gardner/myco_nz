@@ -85,7 +85,17 @@ describe("LocationExperience", () => {
 
     expect(await screen.findByText("White Basket Fungus")).toBeVisible();
     expect(geolocation).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /refresh location/i })).toBeVisible();
+    const brand = screen.getByText("Nearby Fungi");
+    const heading = screen.getByRole("heading", {
+      name: "Most often observed near you",
+    });
+    const refreshButton = screen.getByRole("button", { name: "Refresh location" });
+    expect(brand).toBeVisible();
+    expect(refreshButton).toBeVisible();
+    expect(refreshButton).toHaveAttribute("title", "Refresh location");
+    expect(refreshButton).toHaveTextContent("");
+    expect(brand.closest("header")).toBe(heading.closest("header"));
+    expect(refreshButton.closest("header")).toBe(heading.closest("header"));
   });
 
   it("shows the denied-location recovery state", async () => {

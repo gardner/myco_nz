@@ -17,8 +17,7 @@
 }
 
 .gate h1,
-.statusPanel h1,
-.resultsHeader h1 {
+.statusPanel h1 {
   margin: 0;
   color: var(--text);
   font-size: 32px;
@@ -27,8 +26,7 @@
 }
 
 .intro,
-.statusPanel p,
-.resultsHeader > p:not(.eyebrow, .coverage) {
+.statusPanel p {
   max-width: 600px;
   margin: 16px 0 0;
   color: var(--text-muted);
@@ -36,8 +34,7 @@
   line-height: 1.6;
 }
 
-.primaryButton,
-.secondaryButton {
+.primaryButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -93,7 +90,48 @@
 }
 
 .resultsHeader {
-  padding-top: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.resultsBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.resultsBrand img {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.resultsContext {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.resultsContext h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.resultsContext p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .coverage {
@@ -103,14 +141,19 @@
   line-height: 1.45;
 }
 
-.secondaryButton {
-  min-height: 44px;
-  margin-top: 18px;
-  padding: 0 13px;
+.refreshButton {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   color: var(--action);
-  font-size: 14px;
   background: transparent;
-  border-color: var(--border-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  cursor: pointer;
 }
 
 .skeletonList {
@@ -167,13 +210,25 @@
 
 @media (min-width: 40rem) {
   .gate h1,
-  .statusPanel h1,
-  .resultsHeader h1 {
+  .statusPanel h1 {
     font-size: 36px;
   }
 
   .resultsHeader {
-    padding-top: 40px;
+    grid-template-columns: auto minmax(0, 1fr) 44px;
+    gap: 18px;
+    padding-bottom: 10px;
+  }
+
+  .resultsContext {
+    grid-column: 2;
+    grid-row: 1;
+    padding-left: 18px;
+    border-left: 1px solid var(--border);
+  }
+
+  .refreshButton {
+    grid-column: 3;
   }
 
   .skeleton {

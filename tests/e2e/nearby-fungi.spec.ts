@@ -29,8 +29,18 @@ test.describe("Nearby Fungi", () => {
     await page.goto(appPath);
     await page.getByRole("button", { name: "Show fungi near me" }).click();
 
-    await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
+    const resultsHeading = page.getByRole("heading", { name: "Most often observed near you" });
+    await expect(resultsHeading).toBeVisible();
+    await expect(resultsHeading).toBeFocused();
+    const resultsHeader = page.locator("header").filter({ has: resultsHeading });
+    await expect(resultsHeader.getByText("Nearby Fungi")).toBeVisible();
+    const refreshButton = page.getByRole("button", { name: "Refresh location" });
+    await expect(refreshButton).toHaveAttribute("title", "Refresh location");
+    await expect(refreshButton).toHaveText("");
+    const refreshBox = await refreshButton.boundingBox();
+    expect(refreshBox?.width).toBeGreaterThanOrEqual(44);
+    expect(refreshBox?.height).toBeGreaterThanOrEqual(44);
+    expect((await resultsHeader.boundingBox())?.height).toBeLessThanOrEqual(150);
     await expect(page.getByRole("article")).toHaveCount(3);
     expect(apiRequests).toHaveLength(1);
     expect(apiRequests[0]).toContain("/api/fungi/v1/en-NZ/r6/86bb2955fffffff/");
@@ -122,6 +132,11 @@ test("keeps the result column readable on desktop", async ({ page }, testInfo) =
 
   await page.goto(appPath);
   await expect(page.getByRole("article")).toHaveCount(3);
+  const resultsHeading = page.getByRole("heading", { name: "Most often observed near you" });
+  const resultsHeader = page.locator("header").filter({ has: resultsHeading });
+  await expect(resultsHeader.getByText("Nearby Fungi")).toBeVisible();
+  await expect(resultsHeader.getByRole("button", { name: "Refresh location" })).toBeVisible();
+  expect((await resultsHeader.boundingBox())?.height).toBeLessThanOrEqual(80);
   await expect
     .poll(() => page.getByRole("img", { name: /photo of white basket fungus/i }).evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);

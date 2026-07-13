@@ -5,6 +5,16 @@ import styles from "@/components/location-experience.module.css";
 import { formatSeasonalRange } from "@/lib/months";
 import type { FungiResponse } from "@/lib/types";
 
+export function BrandHeader() {
+  return (
+    <header className="brand" aria-label="Nearby Fungi">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/fungi-placeholder.svg" width="34" height="34" alt="" />
+      <span>Nearby Fungi</span>
+    </header>
+  );
+}
+
 export function LocationGate({
   hydrated,
   locating,
@@ -109,21 +119,29 @@ export function StatusView({
 }
 
 function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: () => void }) {
+  const context = data
+    ? `Historical research-grade records from ${formatSeasonalRange(data.query.requestedMonth)}. ${data.coverage.label}.`
+    : "Loading seasonal research-grade records within your approximate area.";
+
   return (
     <header className={styles.resultsHeader}>
-      <p className={styles.eyebrow}>Historical observation frequency</p>
-      <h1 tabIndex={-1}>Most often observed near you</h1>
-      <p>
-        {data
-          ? `Based on research-grade observations from ${formatSeasonalRange(data.query.requestedMonth)} across previous years.`
-          : "Loading seasonal research-grade observations..."}
-      </p>
-      <p className={styles.coverage}>
-        {data?.coverage.label ?? "Within your approximate area"}
-      </p>
-      <button className={styles.secondaryButton} onClick={onRefresh} type="button">
-        <RefreshCw aria-hidden="true" size={17} />
-        Refresh location
+      <div className={styles.resultsBrand} aria-label="Nearby Fungi">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/fungi-placeholder.svg" width="34" height="34" alt="" />
+        <span>Nearby Fungi</span>
+      </div>
+      <div className={styles.resultsContext}>
+        <h1 tabIndex={-1}>Most often observed near you</h1>
+        <p>{context}</p>
+      </div>
+      <button
+        className={styles.refreshButton}
+        onClick={onRefresh}
+        type="button"
+        aria-label="Refresh location"
+        title="Refresh location"
+      >
+        <RefreshCw aria-hidden="true" size={20} />
       </button>
     </header>
   );

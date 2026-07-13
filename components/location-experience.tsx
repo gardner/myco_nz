@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 
 import styles from "@/components/location-experience.module.css";
 import {
+  BrandHeader,
   EmptyView,
   LoadingView,
   LocationGate,
@@ -107,6 +108,7 @@ export function LocationExperience() {
 
   return (
     <section className={styles.experience} ref={experience}>
+      {state.status !== "loading" && state.status !== "success" && <BrandHeader />}
       <p className="sr-only" role="status" aria-live="polite">
         {liveMessage(state)}
       </p>
