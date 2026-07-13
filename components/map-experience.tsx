@@ -15,12 +15,21 @@ import { GazetteerAttribution } from "@/components/gazetteer-attribution";
 import styles from "@/components/map-experience.module.css";
 import { NzAreaMap } from "@/components/nz-area-map";
 import {
+  formatApproximatePlace,
+  getApproximatePlaceForCell,
+} from "@/lib/approximate-place";
+import {
   coordinatesToApproximateCell,
   handoffLocationCell,
   markResultsForFocus,
 } from "@/lib/client-location";
 import { AREA_GROUPS, getMapArea } from "@/lib/map-areas";
-import { buildSharedLocationUrl, parseSharedMonthSearch } from "@/lib/shared-location";
+import {
+  buildSharedLocationUrl,
+  parseSharedLocationSearch,
+  parseSharedMonthSearch,
+} from "@/lib/shared-location";
+import { validateLocationCell } from "@/lib/validation";
 
 export function MapExperience() {
   const router = useRouter();
@@ -35,9 +44,24 @@ export function MapExperience() {
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   useEffect(() => {
-    selectedMonth.current = parseSharedMonthSearch(window.location.search) ?? currentMonth();
+    const search = window.location.search;
+    const shared = parseSharedLocationSearch(search);
+    selectedMonth.current = parseSharedMonthSearch(search) ?? currentMonth();
+    const restoredCell = shared && validateLocationCell(shared.cell).ok
+      ? shared.cell
+      : null;
+    const restoreTimer = restoredCell
+      ? window.setTimeout(() => {
+          setSelectedMapCell(restoredCell);
+          const label = formatApproximatePlace(
+            getApproximatePlaceForCell(restoredCell),
+          );
+          setStatus(`${label} is selected on the map.`);
+        }, 0)
+      : undefined;
     heading.current?.focus();
     return () => {
+      if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
       operationGeneration.current += 1;
     };
   }, []);
@@ -87,6 +111,14 @@ export function MapExperience() {
     event.preventDefault();
     const location = getMapArea(selectedArea);
     if (location) void chooseLocation(location.latitude, location.longitude);
+  };
+
+  const previewNamedArea = (areaId: string) => {
+    const location = getMapArea(areaId);
+    setSelectedArea(areaId);
+    setSelectedMapCell(null);
+    setHasError(false);
+    setStatus(location ? `${location.name} is selected as a named area.` : "");
   };
 
   const showConversionError = () => {
@@ -140,10 +172,7 @@ export function MapExperience() {
           <select
             id="named-area"
             value={selectedArea}
-            onChange={(event) => {
-              setSelectedArea(event.target.value);
-              setSelectedMapCell(null);
-            }}
+            onChange={(event) => previewNamedArea(event.target.value)}
             disabled={!hydrated || selecting}
           >
             <option value="">Select a town or city</option>

@@ -11,12 +11,17 @@ vi.mock("next/navigation", () => ({
 
 describe("MapPage", () => {
   it("is a directly renderable map route with a way back", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/map?cell=86da96487ffffff&month=3",
+    );
     render(<MapPage />);
 
     expect(await screen.findByRole("heading", { name: "Choose an area" })).toHaveFocus();
     expect(screen.getByRole("link", { name: "Back to Nearby Fungi" })).toHaveAttribute(
       "href",
-      "/",
+      "/?cell=86da96487ffffff&month=3",
     );
   });
 });

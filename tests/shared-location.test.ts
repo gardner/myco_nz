@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMapLocationUrl,
   buildSharedLocationUrl,
   parseSharedMonthSearch,
   parseSharedLocationSearch,
@@ -29,6 +30,12 @@ describe("shared location URLs", () => {
   it("builds a stable share URL", () => {
     expect(buildSharedLocationUrl("86da96487ffffff", 12)).toBe(
       "/?cell=86da96487ffffff&month=12",
+    );
+  });
+
+  it("builds a map URL that preserves the shared cell and month", () => {
+    expect(buildMapLocationUrl("86da96487ffffff", 12)).toBe(
+      "/map?cell=86da96487ffffff&month=12",
     );
   });
 

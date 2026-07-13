@@ -1,8 +1,7 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { MapExperience } from "@/components/map-experience";
+import { MapBackLink } from "@/components/map-back-link";
 import styles from "@/app/map/map-page.module.css";
 import { buildStaticMetadata } from "@/lib/social-metadata";
 
@@ -24,14 +23,7 @@ export default function MapPage() {
             <img src="/fungi-placeholder.svg" width="34" height="34" alt="" />
             <span>Nearby Fungi</span>
           </div>
-          <Link
-            className={styles.backLink}
-            href="/"
-            aria-label="Back to Nearby Fungi"
-            title="Back to Nearby Fungi"
-          >
-            <ArrowLeft aria-hidden="true" size={20} />
-          </Link>
+          <MapBackLink className={styles.backLink} />
         </header>
         <MapExperience />
       </div>

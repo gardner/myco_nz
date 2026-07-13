@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LocationExperience } from "@/components/location-experience";
 import { markResultsForFocus, STORAGE_KEY } from "@/lib/client-location";
-import { getSeasonalMonths } from "@/lib/months";
+import { formatMonthName, getSeasonalMonths } from "@/lib/months";
 import realSpeciesCounts from "@/tests/fixtures/inaturalist-species-counts.json";
 
 const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
@@ -76,7 +76,14 @@ describe("LocationExperience", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
 
     expect(await screen.findByRole("heading", { name: "Most often observed near you" })).toBeVisible();
-    expect(await screen.findByText("Near Wellington")).toBeVisible();
+    const placeLink = await screen.findByRole("link", {
+      name: "View Wellington on map",
+    });
+    expect(placeLink).toHaveTextContent("Wellington");
+    expect(placeLink).toHaveAttribute(
+      "href",
+      `/map?cell=86bb2955fffffff&month=${new Date().getMonth() + 1}`,
+    );
     expect(screen.getByText("White Basket Fungus")).toBeVisible();
     const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
     expect(`${requestedUrl.origin}${requestedUrl.pathname}`).toBe(
@@ -95,6 +102,21 @@ describe("LocationExperience", () => {
     expect(requestedUrl.toString()).not.toContain(String(exactLongitude));
     expect(window.location.search).toBe(
       `?cell=86bb2955fffffff&month=${new Date().getMonth() + 1}`,
+    );
+
+    const nextMonth = new Date().getMonth() === 11
+      ? 1
+      : new Date().getMonth() + 2;
+    fireEvent.click(screen.getByRole("radio", {
+      name: formatMonthName(nextMonth),
+    }));
+    await waitFor(() =>
+      expect(screen.getByRole("link", {
+        name: "View Wellington on map",
+      })).toHaveAttribute(
+        "href",
+        `/map?cell=86bb2955fffffff&month=${nextMonth}`,
+      ),
     );
   });
 

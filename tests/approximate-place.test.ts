@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  describeApproximatePlace,
   formatApproximatePlace,
   getApproximatePlaceForCell,
   greatCircleDistanceKm,
@@ -23,6 +24,14 @@ describe("approximate New Zealand place names", () => {
     expect(formatApproximatePlace({ name: "Te Anau", distanceKm: 33.9 })).toBe(
       "About 34 km from Te Anau",
     );
+    expect(describeApproximatePlace({ name: "Nelson", distanceKm: 2.9 })).toEqual({
+      prefix: "Near ",
+      placeName: "Nelson",
+    });
+    expect(describeApproximatePlace({ name: "Te Anau", distanceKm: 33.9 })).toEqual({
+      prefix: "About 34 km from ",
+      placeName: "Te Anau",
+    });
   });
 
   it.each([

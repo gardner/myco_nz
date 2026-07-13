@@ -8,6 +8,7 @@ import styles from "@/components/location-experience.module.css";
 import { MonthSelector } from "@/components/month-selector";
 import { NzMapIcon } from "@/components/nz-map-icon";
 import { formatSeasonalRange } from "@/lib/months";
+import { buildMapLocationUrl } from "@/lib/shared-location";
 import type { FungiResponse } from "@/lib/types";
 
 export function BrandHeader() {
@@ -84,7 +85,7 @@ export function ResultsView({
 }) {
   return (
     <>
-      <ResultsHeader cell={cell} data={data} onRefresh={onRefresh} />
+      <ResultsHeader cell={cell} data={data} month={month} onRefresh={onRefresh} />
       <MonthSelector selectedMonth={month} onSelect={onSelectMonth} />
       <ResultsBody data={data} onRefresh={onRefresh} />
     </>
@@ -171,10 +172,12 @@ export function StatusView({
 function ResultsHeader({
   cell,
   data,
+  month,
   onRefresh,
 }: {
   cell: string;
   data?: FungiResponse;
+  month: number;
   onRefresh: () => void;
 }) {
   const context = data
@@ -191,7 +194,10 @@ function ResultsHeader({
       <div className={styles.resultsContext}>
         <h1 tabIndex={-1}>Most often observed near you</h1>
         <p className={styles.resultsMeta}>
-          <ApproximateAreaLabel cell={cell} />
+          <ApproximateAreaLabel
+            cell={cell}
+            href={buildMapLocationUrl(cell, month)}
+          />
           <span>{context}</span>
         </p>
       </div>

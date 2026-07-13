@@ -138,6 +138,44 @@ describe("MapExperience", () => {
     );
   });
 
+  it("restores a linked results cell as the selected map area", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/map?cell=86da96487ffffff&month=3",
+    );
+
+    render(<MapExperience />);
+
+    expect(await screen.findByText("Near Nelson")).toBeVisible();
+    expect(screen.getByTestId("map-cell-preview")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Near Nelson is selected on the map.",
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Choose a named area" }), {
+      target: { value: "wellington" },
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Wellington is selected as a named area.",
+    );
+    expect(screen.queryByText("Near Nelson")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Choose a named area" }), {
+      target: { value: "" },
+    });
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+
+    fireEvent.click(screen.getByTestId("mainland-land"), {
+      clientX: 173.284,
+      clientY: 41.2706,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use selected map area" }));
+
+    expect(navigation.push).toHaveBeenCalledWith(
+      "/?cell=86da96487ffffff&month=3",
+    );
+  });
+
   it("shows a visible error when a map point cannot be converted", () => {
     Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
       configurable: true,

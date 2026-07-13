@@ -18,3 +18,14 @@
   color: var(--text);
   font-weight: 750;
 }
+
+.area a {
+  color: var(--action);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.area a:hover {
+  text-decoration-thickness: 2px;
+}

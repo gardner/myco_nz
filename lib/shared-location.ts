@@ -24,10 +24,18 @@ export function parseSharedMonthSearch(search: string): number | null {
 }
 
 export function buildSharedLocationUrl(cell: string, month: number): string {
+  return buildLocationUrl("/", cell, month);
+}
+
+export function buildMapLocationUrl(cell: string, month: number): string {
+  return buildLocationUrl("/map", cell, month);
+}
+
+function buildLocationUrl(path: string, cell: string, month: number): string {
   if (!RESOLUTION_SIX_CELL.test(cell) || !isMonth(month)) {
     throw new RangeError("A canonical resolution 6 cell and month are required");
   }
-  return `/?cell=${cell}&month=${month}`;
+  return `${path}?cell=${cell}&month=${month}`;
 }
 
 function isMonth(value: number): boolean {

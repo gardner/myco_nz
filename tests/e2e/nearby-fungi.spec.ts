@@ -105,6 +105,41 @@ test.describe("Nearby Fungi", () => {
     await expect(page.getByText("White Basket Fungus")).toBeVisible();
     await expect(page.getByRole("button", { name: "Refresh location" })).toBeVisible();
   });
+
+  test("opens the current approximate area from its linked place name", async ({
+    page,
+  }, testInfo) => {
+    await page.route(speciesCountsRoute, fulfillSpeciesCounts);
+    await page.goto("/?cell=86bb2955fffffff&month=3");
+
+    await expect(page.getByRole("article")).toHaveCount(3);
+    const placeLink = page.getByRole("link", {
+      name: "View Wellington on map",
+    });
+    await expect(placeLink).toHaveText("Wellington");
+    await expect(placeLink).toHaveAttribute(
+      "href",
+      "/map?cell=86bb2955fffffff&month=3",
+    );
+    expect(
+      await placeLink.evaluate((element) =>
+        getComputedStyle(element).textDecorationLine
+      ),
+    ).toContain("underline");
+    await page.screenshot({
+      path: testInfo.outputPath("linked-place-mobile.png"),
+      fullPage: true,
+    });
+
+    await placeLink.click();
+
+    await expect(page).toHaveURL("/map?cell=86bb2955fffffff&month=3");
+    await expect(page.getByTestId("map-cell-preview")).toBeVisible();
+    await expect(page.getByText("Near Wellington", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toHaveText(
+      "Near Wellington is selected on the map.",
+    );
+  });
 });
 
 test("routes denied location access to the map", async ({ browser }, testInfo) => {

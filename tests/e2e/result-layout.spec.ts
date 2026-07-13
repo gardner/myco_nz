@@ -19,8 +19,12 @@ test("wraps a real long Gazetteer label in the mobile results header", async ({ 
 
   await page.goto("/?cell=86da82237ffffff&month=7");
 
-  const area = page.getByLabel(
-    "Approximate area: About 36 km from Lake Ohau Alpine Village",
+  const area = page.getByTestId("approximate-area-label");
+  await expect(page.getByRole("link", {
+    name: "View Lake Ohau Alpine Village on map",
+  })).toBeVisible();
+  await expect(area).toContainText(
+    "About 36 km from Lake Ohau Alpine Village",
   );
   await expect(area).toBeVisible();
   expect(

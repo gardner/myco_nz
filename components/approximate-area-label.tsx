@@ -1,21 +1,36 @@
 "use client";
 
 import { MapPin } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import styles from "@/components/approximate-area-label.module.css";
 
-export function ApproximateAreaLabel({ cell }: { cell: string }) {
-  const [resolved, setResolved] = useState<{ cell: string; label: string } | null>(null);
+type ResolvedArea = Readonly<{
+  cell: string;
+  prefix: string;
+  placeName: string;
+}>;
+
+export function ApproximateAreaLabel({
+  cell,
+  href,
+}: {
+  cell: string;
+  href: string;
+}) {
+  const [resolved, setResolved] = useState<ResolvedArea | null>(null);
 
   useEffect(() => {
     let current = true;
     void import("@/lib/approximate-place")
       .then((places) => {
         if (!current) return;
+        const place = places.getApproximatePlaceForCell(cell);
+        const description = places.describeApproximatePlace(place);
         setResolved({
           cell,
-          label: places.formatApproximatePlace(places.getApproximatePlaceForCell(cell)),
+          ...description,
         });
       })
       .catch(() => undefined);
@@ -24,12 +39,22 @@ export function ApproximateAreaLabel({ cell }: { cell: string }) {
     };
   }, [cell]);
 
-  const label = resolved?.cell === cell ? resolved.label : "Aotearoa New Zealand";
+  const area = resolved?.cell === cell ? resolved : null;
 
   return (
-    <span className={styles.area} aria-label={`Approximate area: ${label}`}>
+    <span className={styles.area} data-testid="approximate-area-label">
       <MapPin aria-hidden="true" size={15} />
-      <strong>{label}</strong>
+      <span className="sr-only">Approximate area: </span>
+      <strong>
+        {area ? (
+          <>
+            {area.prefix}
+            <Link href={href} aria-label={`View ${area.placeName} on map`}>
+              {area.placeName}
+            </Link>
+          </>
+        ) : "Aotearoa New Zealand"}
+      </strong>
     </span>
   );
 }

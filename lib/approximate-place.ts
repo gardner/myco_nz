@@ -19,6 +19,11 @@ export type ApproximatePlace = Readonly<{
   distanceKm: number;
 }>;
 
+export type ApproximatePlaceDescription = Readonly<{
+  prefix: string;
+  placeName: string;
+}>;
+
 export type CellGeometry = Readonly<{
   centre: readonly [number, number];
   boundary: ReadonlyArray<readonly [number, number]>;
@@ -48,8 +53,17 @@ export function getCellGeometry(cell: string): CellGeometry {
 }
 
 export function formatApproximatePlace(place: ApproximatePlace): string {
-  if (place.distanceKm <= NEARBY_DISTANCE_KM) return `Near ${place.name}`;
-  return `About ${Math.round(place.distanceKm)} km from ${place.name}`;
+  const description = describeApproximatePlace(place);
+  return `${description.prefix}${description.placeName}`;
+}
+
+export function describeApproximatePlace(
+  place: ApproximatePlace,
+): ApproximatePlaceDescription {
+  const prefix = place.distanceKm <= NEARBY_DISTANCE_KM
+    ? "Near "
+    : `About ${Math.round(place.distanceKm)} km from `;
+  return { prefix, placeName: place.name };
 }
 
 function findNearestPlace(latitude: number, longitude: number): ApproximatePlace {
