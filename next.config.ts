@@ -5,7 +5,7 @@ const imageSources = [
   "https://static.inaturalist.org",
 ];
 
-const contentSecurityPolicy = [
+const contentSecurityPolicyDirectives = [
   "default-src 'self'",
   "base-uri 'self'",
   "connect-src 'self'",
@@ -15,8 +15,18 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "upgrade-insecure-requests",
-].join("; ");
+];
+
+export function getContentSecurityPolicy(isProduction: boolean): string {
+  return [
+    ...contentSecurityPolicyDirectives,
+    ...(isProduction ? ["upgrade-insecure-requests"] : []),
+  ].join("; ");
+}
+
+const contentSecurityPolicy = getContentSecurityPolicy(
+  process.env.NODE_ENV === "production",
+);
 
 const nextConfig: NextConfig = {
   async headers() {
