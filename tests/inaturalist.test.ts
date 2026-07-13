@@ -6,6 +6,7 @@ import {
   InvalidUpstreamResponseError,
   normaliseSpeciesCounts,
 } from "@/lib/inaturalist";
+import realSpeciesCounts from "@/tests/fixtures/inaturalist-species-counts.json";
 
 const query = {
   cell: "86bb2955fffffff",
@@ -59,6 +60,28 @@ describe("iNaturalist URL policy", () => {
 });
 
 describe("normaliseSpeciesCounts", () => {
+  it("normalises a captured response from the real iNaturalist API", () => {
+    const result = normaliseSpeciesCounts({
+      payload: realSpeciesCounts,
+      ...query,
+      generatedAt: new Date("2026-07-13T00:00:00.000Z"),
+    });
+
+    expect(result.results.map(({ taxonId, observationCount }) => ({ taxonId, observationCount }))).toEqual([
+      { taxonId: 382779, observationCount: 448 },
+      { taxonId: 179230, observationCount: 312 },
+      { taxonId: 53281, observationCount: 296 },
+    ]);
+    expect(result.results[0]).toMatchObject({
+      commonName: "White Basket Fungus",
+      scientificName: "Ileodictyon cibarium",
+      image: {
+        url: "https://inaturalist-open-data.s3.amazonaws.com/photos/41876325/square.jpeg",
+        licenseCode: "cc-by-nc",
+      },
+    });
+  });
+
   it("preserves rank order, fallbacks, photo metadata, and response coverage", () => {
     const result = normaliseSpeciesCounts({
       payload: {

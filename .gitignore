@@ -5,3 +5,5 @@ node_modules
 .vinext/
 .wrangler/
 *.tsbuildinfo
+/test-results/
+/playwright-report/

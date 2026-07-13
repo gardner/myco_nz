@@ -1,0 +1,66 @@
+{
+  "_fixture": {
+    "source": "https://api.inaturalist.org/v1/observations/species_counts",
+    "capturedAt": "2026-07-13T00:00:00+12:00",
+    "query": "Wellington H3 cell centre, 30 km, Jun-Aug, research-grade fungi species"
+  },
+  "total_results": 398,
+  "page": 1,
+  "per_page": 20,
+  "results": [
+    {
+      "count": 448,
+      "taxon": {
+        "id": 382779,
+        "rank": "species",
+        "name": "Ileodictyon cibarium",
+        "default_photo": {
+          "id": 41876325,
+          "license_code": "cc-by-nc",
+          "attribution": "(c) k_fordyce, some rights reserved (CC BY-NC)",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/41876325/square.jpeg",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/41876325/square.jpeg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/41876325/medium.jpeg"
+        },
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "White Basket Fungus"
+      }
+    },
+    {
+      "count": 312,
+      "taxon": {
+        "id": 179230,
+        "rank": "species",
+        "name": "Auricularia cornea",
+        "default_photo": {
+          "id": 120283404,
+          "license_code": "cc-by",
+          "attribution": "(c) Sunčana Bradley, some rights reserved (CC BY), uploaded by Sunčana Bradley",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/120283404/square.jpg",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/120283404/square.jpg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/120283404/medium.jpg"
+        },
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Ear fungus"
+      }
+    },
+    {
+      "count": 296,
+      "taxon": {
+        "id": 53281,
+        "rank": "species",
+        "name": "Leratiomyces erythrocephalus",
+        "default_photo": {
+          "id": 1901505,
+          "license_code": "cc-by-nc",
+          "attribution": "(c) Shirley Kerr, some rights reserved (CC BY-NC), uploaded by Shirley Kerr",
+          "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1901505/square.jpg",
+          "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1901505/square.jpg",
+          "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/1901505/medium.jpg"
+        },
+        "iconic_taxon_name": "Fungi",
+        "preferred_common_name": "Scarlet Pouch"
+      }
+    }
+  ]
+}

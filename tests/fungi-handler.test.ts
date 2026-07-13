@@ -26,7 +26,7 @@ function createDependencies(
     fetch,
     limit,
     now: () => new Date("2026-07-13T00:00:00.000Z"),
-    userAgent: "NearbyFungi/1.0 (+https://example.nz/about)",
+    userAgent: "myco.nz/1.0 <gardner@bickford.nz>",
     log: vi.fn(),
   };
 }

@@ -26,7 +26,7 @@
     }
   ],
   "vars": {
-    "INATURALIST_USER_AGENT": "NearbyFungi/1.0 (+https://github.com/gardner/myco_nz)"
+    "INATURALIST_USER_AGENT": "myco.nz/1.0 <gardner@bickford.nz>"
   },
   "observability": {
     "enabled": true,
