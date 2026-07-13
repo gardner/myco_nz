@@ -4,7 +4,7 @@ Nearby Fungi is a mobile-first view of the fungi most often recorded near an app
 
 ## Privacy Model
 
-The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Users can instead choose a point on the static `/map` fallback; that point is converted and discarded the same way. Only the cell, resolution, and update time are stored locally. Shareable URLs contain the approximate cell and selected month, never the original coordinates.
+The browser requests location with high accuracy disabled, converts the coordinates to an H3 resolution 6 cell, and discards the original coordinates. Users can instead choose a point on the static `/map` fallback; that point is converted and discarded the same way. Hovering or tapping previews the H3 cell and a nearby place label, and an explicit action confirms the selection. Map interaction state contains only the resulting H3 cell. Only the cell, resolution, and update time are stored locally. Shareable URLs contain the approximate cell and selected month, never the original coordinates.
 
 Result pages use `/?cell=<resolution-6-H3>&month=<1-12>`. The 12-box month selector updates this URL and reloads the matching seasonal window, so the current view can be shared directly.
 
@@ -12,7 +12,7 @@ The browser validates the cell and month, converts the cell to its centre, and s
 
 Requests omit credentials and do not add a custom `User-Agent` or `X-Via` header. A client-side coordinator applies a 10-second request deadline, spaces requests at least one second apart, cancels obsolete month selections, and waits at least 10 seconds after an iNaturalist `429` before another request. There are no accounts, analytics, application data API, database, KV namespace, R2 bucket, map SDK, tile service, or iNaturalist credentials.
 
-The static New Zealand outline is derived from Natural Earth 1:10m Admin 0 - Countries v5.1.1, which is public-domain data.
+The static New Zealand outline is derived from Natural Earth 1:10m Admin 0 - Countries v5.1.1, which is public-domain data. It draws the real H3 cell boundary and a larger visual marker locally; no map tiles are requested. Approximate labels are calculated locally from a compact, filtered, coordinate-rounded extract of the [New Zealand Gazetteer](https://data.linz.govt.nz/layer/51681-nz-place-names-nzgb/), provided by Ngā Pou Taunaha o Aotearoa and Toitū Te Whenua LINZ under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). No hover or result location is sent to a geocoder.
 
 ## Development
 
@@ -26,6 +26,14 @@ pnpm dev
 The app runs at [http://localhost:3001](http://localhost:3001).
 
 For local development without browser geolocation, set `NEXT_PUBLIC_LOCATION_SEED` to a resolution 6 H3 cell in `.env.development.local`. This seed is not loaded by production builds.
+
+Refresh the committed place-name extract from the Gazetteer's bulk CSV with:
+
+```bash
+pnpm update:place-names
+```
+
+The updater uses the project User-Agent, a real CSV parser, deterministic filtering, and writes source and licence metadata with the generated data.
 
 ## Quality Checks
 

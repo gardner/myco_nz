@@ -76,6 +76,7 @@ describe("LocationExperience", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near me" }));
 
     expect(await screen.findByRole("heading", { name: "Most often observed near you" })).toBeVisible();
+    expect(await screen.findByText("Near Wellington")).toBeVisible();
     expect(screen.getByText("White Basket Fungus")).toBeVisible();
     const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
     expect(`${requestedUrl.origin}${requestedUrl.pathname}`).toBe(

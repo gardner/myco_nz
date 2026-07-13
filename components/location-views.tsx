@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ExternalLink, LocateFixed, LockKeyhole, MapPinned } from "lucide-react";
 
+import { ApproximateAreaLabel } from "@/components/approximate-area-label";
 import { FungiList } from "@/components/fungi-list";
+import { GazetteerAttribution } from "@/components/gazetteer-attribution";
 import styles from "@/components/location-experience.module.css";
 import { MonthSelector } from "@/components/month-selector";
 import { NzMapIcon } from "@/components/nz-map-icon";
@@ -68,11 +70,13 @@ export function LocationGate({
 }
 
 export function ResultsView({
+  cell,
   data,
   month,
   onRefresh,
   onSelectMonth,
 }: {
+  cell: string;
   data?: FungiResponse;
   month: number;
   onRefresh: () => void;
@@ -80,7 +84,7 @@ export function ResultsView({
 }) {
   return (
     <>
-      <ResultsHeader data={data} onRefresh={onRefresh} />
+      <ResultsHeader cell={cell} data={data} onRefresh={onRefresh} />
       <MonthSelector selectedMonth={month} onSelect={onSelectMonth} />
       <ResultsBody data={data} onRefresh={onRefresh} />
     </>
@@ -164,10 +168,18 @@ export function StatusView({
   );
 }
 
-function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: () => void }) {
+function ResultsHeader({
+  cell,
+  data,
+  onRefresh,
+}: {
+  cell: string;
+  data?: FungiResponse;
+  onRefresh: () => void;
+}) {
   const context = data
-    ? `Historical research-grade records from ${formatSeasonalRange(data.query.requestedMonth)}. ${data.coverage.label}.`
-    : "Loading seasonal research-grade records within your approximate area.";
+    ? `Research-grade records from ${formatSeasonalRange(data.query.requestedMonth)}, within about 30 km.`
+    : "Loading research-grade records within about 30 km.";
 
   return (
     <header className={styles.resultsHeader}>
@@ -178,7 +190,10 @@ function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: (
       </div>
       <div className={styles.resultsContext}>
         <h1 tabIndex={-1}>Most often observed near you</h1>
-        <p>{context}</p>
+        <p className={styles.resultsMeta}>
+          <ApproximateAreaLabel cell={cell} />
+          <span>{context}</span>
+        </p>
       </div>
       <button
         className={styles.refreshButton}
@@ -196,7 +211,7 @@ function ResultsHeader({ data, onRefresh }: { data?: FungiResponse; onRefresh: (
 function ResultsFooter() {
   return (
     <footer className={styles.resultsFooter}>
-      <SourceLine />
+      <SourceLine includePlaceNames />
       <p>
         Observation frequency does not guarantee that a species is present today. This is not an
         identification or edibility guide.
@@ -205,7 +220,7 @@ function ResultsFooter() {
   );
 }
 
-function SourceLine() {
+function SourceLine({ includePlaceNames = false }: { includePlaceNames?: boolean }) {
   return (
     <p className={styles.source}>
       Powered by{" "}
@@ -213,7 +228,12 @@ function SourceLine() {
         iNaturalist observations
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
-      .
+      .{" "}
+      {includePlaceNames && (
+        <>
+          Approximate place names from <GazetteerAttribution />.
+        </>
+      )}
     </p>
   );
 }

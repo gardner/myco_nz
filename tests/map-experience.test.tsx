@@ -46,6 +46,12 @@ describe("MapExperience", () => {
       clientX: 173.284,
       clientY: 41.2706,
     });
+    fireEvent.pointerLeave(screen.getByTestId("mainland-land"));
+
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(screen.getByText("Near Nelson")).toBeVisible();
+    expect(screen.getByTestId("map-cell-preview")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Use selected map area" }));
 
     await waitFor(() =>
       expect(navigation.push).toHaveBeenCalledWith(
@@ -62,6 +68,39 @@ describe("MapExperience", () => {
     expect(stored).not.toContain("-41.2706");
   });
 
+  it("previews the hovered H3 cell and its nearby place name", () => {
+    render(<MapExperience />);
+
+    const mainland = screen.getByTestId("mainland-land");
+    fireEvent.pointerMove(mainland, {
+      clientX: 173.284,
+      clientY: 41.2706,
+      pointerType: "mouse",
+    });
+
+    expect(screen.getByTestId("map-cell-preview")).toBeVisible();
+    expect(screen.getByText("Near Nelson")).toBeVisible();
+
+    fireEvent.pointerLeave(mainland);
+    expect(screen.queryByTestId("map-cell-preview")).not.toBeInTheDocument();
+    expect(screen.queryByText("Near Nelson")).not.toBeInTheDocument();
+  });
+
+  it("keeps the selected cell visible while the pointer moves elsewhere", () => {
+    render(<MapExperience />);
+
+    const mainland = screen.getByTestId("mainland-land");
+    fireEvent.click(mainland, { clientX: 173.284, clientY: 41.2706 });
+    fireEvent.pointerMove(mainland, {
+      clientX: 174.7645,
+      clientY: 36.8509,
+      pointerType: "mouse",
+    });
+
+    expect(screen.getByText("Near Nelson")).toBeVisible();
+    expect(screen.queryByText("Near Auckland")).not.toBeInTheDocument();
+  });
+
   it("offers a keyboard-accessible named-area alternative", async () => {
     render(<MapExperience />);
 
@@ -69,6 +108,8 @@ describe("MapExperience", () => {
       target: { value: "nelson" },
     });
 
+    expect(screen.getByText("Near Nelson")).toBeVisible();
+    expect(screen.getByTestId("map-cell-preview")).toBeVisible();
     expect(navigation.push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Show fungi near this area" }));
 
@@ -116,10 +157,10 @@ describe("MapExperience", () => {
   it("does not navigate after selection work is abandoned", async () => {
     const { unmount } = render(<MapExperience />);
 
-    fireEvent.click(screen.getByTestId("mainland-land"), {
-      clientX: 173.284,
-      clientY: 41.2706,
+    fireEvent.change(screen.getByRole("combobox", { name: "Choose a named area" }), {
+      target: { value: "nelson" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Show fungi near this area" }));
     unmount();
 
     await new Promise((resolve) => window.setTimeout(resolve, 0));

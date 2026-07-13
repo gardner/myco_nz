@@ -157,6 +157,7 @@ function StateView({
     case "empty":
       return (
         <ResultsView
+          cell={state.cell}
           data={state.status === "loading" ? undefined : state.data}
           month={state.month}
           onRefresh={requestLocation}

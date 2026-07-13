@@ -5,6 +5,7 @@ import { expect, test, type Route } from "@playwright/test";
 import realSpeciesCounts from "../fixtures/inaturalist-species-counts.json" with {
   type: "json",
 };
+import { MAINLAND_MAP_SELECTOR, mapLocationToScreenPoint } from "./map-helpers";
 
 const exactLocation = { latitude: -41.28664, longitude: 174.77557 };
 const appPath = "/?disable_location_seed=1";
@@ -55,6 +56,7 @@ test.describe("Nearby Fungi", () => {
     await expect(resultsHeading).toBeFocused();
     const resultsHeader = page.locator("header").filter({ has: resultsHeading });
     await expect(resultsHeader.getByText("Nearby Fungi")).toBeVisible();
+    await expect(resultsHeader.getByText("Near Wellington")).toBeVisible();
     const refreshButton = page.getByRole("button", { name: "Refresh location" });
     await expect(refreshButton).toHaveAttribute("title", "Refresh location");
     await expect(refreshButton).toHaveText("");
@@ -128,6 +130,8 @@ test("routes denied location access to the map", async ({ browser }, testInfo) =
   const namedArea = page.getByRole("combobox", { name: "Choose a named area" });
   await expect(namedArea).toBeEnabled();
   await namedArea.selectOption("nelson");
+  await expect(page.getByText("Near Nelson")).toBeVisible();
+  await expect(page.getByTestId("map-cell-preview")).toBeVisible();
   const namedAreaButton = page.getByRole("button", { name: "Show fungi near this area" });
   await expect(namedAreaButton).toBeEnabled();
   expect((await namedArea.boundingBox())?.height).toBeGreaterThanOrEqual(48);
@@ -150,25 +154,29 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
   await page.goto("/map");
   await expect(page.getByRole("combobox", { name: "Choose a named area" })).toBeEnabled();
 
-  const mainland = page.locator('svg[viewBox="165.8 34 13.2 13.5"]');
-  const selection = await mainland.evaluate((element) => {
-    const svg = element as SVGSVGElement;
-    const point = svg.createSVGPoint();
-    point.x = 173.297512;
-    point.y = 41.29682;
-    const screenPoint = point.matrixTransform(svg.getScreenCTM()!);
-    const x = Math.floor(screenPoint.x);
-    const y = Math.floor(screenPoint.y);
-    const mapPoint = new DOMPoint(x, y).matrixTransform(svg.getScreenCTM()!.inverse());
-    return { x, y, latitude: -mapPoint.y, longitude: mapPoint.x };
+  const mainland = page.locator(MAINLAND_MAP_SELECTOR);
+  const selection = await mapLocationToScreenPoint(mainland, {
+    latitude: -41.29682,
+    longitude: 173.297512,
   });
   const expectedCell = latLngToCell(selection.latitude, selection.longitude, 6);
+  await page.mouse.move(selection.x, selection.y);
+  await expect(page.getByTestId("map-cell-preview")).toBeVisible();
+  const expectedPlace = await page.getByTestId("map-place-label").textContent();
+  expect(expectedPlace).toBeTruthy();
   await page.mouse.click(selection.x, selection.y);
+  await page.mouse.move(1, 1);
+
+  await expect(page).toHaveURL(/\/map$/);
+  await expect(page.getByTestId("map-cell-preview")).toBeVisible();
+  await expect(page.getByTestId("map-place-label")).toHaveText(expectedPlace!);
+  await page.getByRole("button", { name: "Use selected map area" }).click();
 
   await expect(page).toHaveURL(
     `/?cell=${expectedCell}&month=${currentMonth}`,
   );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
+  await expect(page.getByText(expectedPlace!)).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(3);
   expect(apiRequests).toHaveLength(1);
   expectCellCentreRequest(apiRequests[0], expectedCell);
@@ -181,18 +189,19 @@ test("converts a map click locally and loads results by H3 cell", async ({ page 
 
 test("keeps map conversion errors in the mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
-  await page.route("**/*h3-js*", (route) => route.abort());
   await page.goto("/map");
   await expect(page.getByRole("combobox", { name: "Choose a named area" })).toBeEnabled();
 
-  const mainland = page.locator('svg[viewBox="165.8 34 13.2 13.5"]');
-  const point = await mainland.evaluate((element) => {
-    const svg = element as SVGSVGElement;
-    const mapPoint = svg.createSVGPoint();
-    mapPoint.x = 173.284;
-    mapPoint.y = 41.2706;
-    const screenPoint = mapPoint.matrixTransform(svg.getScreenCTM()!);
-    return { x: Math.floor(screenPoint.x), y: Math.floor(screenPoint.y) };
+  const mainland = page.locator(MAINLAND_MAP_SELECTOR);
+  const point = await mapLocationToScreenPoint(mainland, {
+    latitude: -41.2706,
+    longitude: 173.284,
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
+      configurable: true,
+      value: () => null,
+    });
   });
   await page.mouse.click(point.x, point.y);
 
@@ -225,6 +234,7 @@ test("uses the named Chatham selection when browser storage is blocked", async (
     `/?cell=86bb364d7ffffff&month=${currentMonth}`,
   );
   await expect(page.getByRole("heading", { name: "Most often observed near you" })).toBeFocused();
+  await expect(page.getByText("Near Waitangi")).toBeVisible();
   expect(apiRequests).toHaveLength(1);
   expectCellCentreRequest(apiRequests[0], "86bb364d7ffffff");
 });
@@ -249,6 +259,7 @@ test("keeps the result column readable on desktop", async ({ page }, testInfo) =
   const resultsHeading = page.getByRole("heading", { name: "Most often observed near you" });
   const resultsHeader = page.locator("header").filter({ has: resultsHeading });
   await expect(resultsHeader.getByText("Nearby Fungi")).toBeVisible();
+  await expect(resultsHeader.getByText("Near Wellington")).toBeVisible();
   await expect(resultsHeader.getByRole("button", { name: "Refresh location" })).toBeVisible();
   expect((await resultsHeader.boundingBox())?.height).toBeLessThanOrEqual(80);
   await expect

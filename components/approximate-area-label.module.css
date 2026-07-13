@@ -1,0 +1,20 @@
+.area {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.area svg {
+  flex: 0 0 auto;
+  color: var(--accent-dark);
+}
+
+.area strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-weight: 750;
+}

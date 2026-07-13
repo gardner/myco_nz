@@ -27,7 +27,7 @@ date: "13 July 2026"
 |---|---|
 | Product | A quick, helpful view of fungi that may be around the user now |
 | Primary experience | Mobile-first ranked list; acceptable centred desktop layout |
-| Map | Route-isolated static SVG fallback at `/map`; no tiles or map SDK |
+| Map | Route-isolated static SVG at `/map` with H3 hover feedback and local Gazetteer labels; no tiles or map SDK |
 | Location | Browser geolocation or a manual map point converted locally to H3 resolution 6 |
 | Exact coordinates | Used only in the browser, then discarded |
 | Seasonal query | Previous, current, and next calendar month across all years |
@@ -194,6 +194,9 @@ Footer:
 - Repeat that exact coordinates are converted to an approximate cell locally.
 - Provide **Try again** and a link to the static `/map` fallback.
 - Allow the user to choose an approximate area on the New Zealand outline without a geocoder or tile service.
+- Show the hovered, tapped, or named H3 cell, plus a locally derived nearby place name, before selection.
+- Require an explicit action to confirm a point selected on the map, so touch users can inspect the preview first.
+- Repeat the locally derived place label in the result header.
 
 ### E. No-result state
 
@@ -278,6 +281,8 @@ Request and return the top 20 results. Do not reorder or silently omit species s
 | FR-015 | Results must provide a 12-box month selector immediately above the ranked list and visibly distinguish the selected month. |
 | FR-016 | The browser URL must contain the canonical approximate H3 cell and selected month so the result view can be shared and restored without geolocation. |
 | FR-017 | Data requests must have a 10-second deadline, be spaced at least one second apart, cancel obsolete work, and start a cooldown of at least 10 seconds after a `429`. |
+| FR-018 | Map and result views must derive a general place label locally from the H3 cell without contacting a geocoder. |
+| FR-019 | Pointer and touch feedback must draw the true H3 cell boundary and may add a clearly visual, non-geographic halo for legibility. A tapped cell must be previewed before an explicit confirmation action. |
 
 ## 1.12 Responsive design requirements
 
@@ -832,6 +837,9 @@ Do not include the exact H3 cell in third-party analytics by default.
 - Image and external URL origin allowlists.
 - Coverage metadata defaults.
 - One-request-per-second pacing, abortable waits, and post-`429` cooldown.
+- Dateline-safe H3-cell-to-place lookup for mainland and Chatham cells.
+- Honest nearby and distance wording for the local Gazetteer result.
+- Reproducible Gazetteer filtering, preferred-name selection, sorting, coordinate rounding, and licence metadata.
 
 ### Client integration tests
 
@@ -864,6 +872,8 @@ Use mocked browser geolocation:
 - Direct cross-origin iNaturalist request interception.
 - Exact mocked latitude/longitude absent from all request URLs.
 - Rapid month selection coalescing and focus retention.
+- SVG pointer hover and touch selection show the H3 boundary and the same place label later shown on results.
+- The first touch selects a cell for preview; a separate action confirms it.
 
 ## 2.18 Deployment and configuration
 
@@ -1089,7 +1099,7 @@ It removes point-level precision and is still local enough for a 30 km recommend
 
 ## Why only a static map fallback?
 
-The ranked list remains the core job. A route-isolated SVG outline provides a private fallback when device location is unavailable without adding tiles, pan and zoom controls, a geocoder, or a map SDK to the primary experience.
+The ranked list remains the core job. The route-isolated SVG already uses longitude and negative latitude as its coordinate system, so it can draw the true H3 boundary, a legibility halo, and a nearby place label without adding tiles, pan and zoom controls, a geocoder, or a map SDK. The place index is generated from the NZ Gazetteer and runs entirely in the browser.[^nz-gazetteer] Move to Leaflet only when pan, zoom, or local basemap context becomes a requirement; move to MapLibre only when vector-tile layers become core product functionality.
 
 ## Why one image?
 
@@ -1104,3 +1114,5 @@ One image provides recognition value while keeping cards compact and network use
 [^inat-practices]: iNaturalist API Recommended Practices: https://www.inaturalist.org/pages/api+recommended+practices
 
 [^h3]: H3, tables of cell statistics across resolutions: https://h3geo.org/docs/core-library/restable/
+
+[^nz-gazetteer]: Toitū Te Whenua LINZ, New Zealand Gazetteer usage and bulk-download guidance: https://www.linz.govt.nz/guidance/place-naming/how-use-new-zealand-gazetteer. The filtered, coordinate-rounded extract is licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
